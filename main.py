@@ -15,10 +15,10 @@ import open_clip
 import itertools
 import numpy as np
 
-sys.path.append("/work/diego.moreira/CLIP-PtBr/clip_pt/src/")
+#sys.path.append("/work/diego.moreira/CLIP-PtBr/clip_pt/src/")
 
-from models.open_CLIP import OpenCLIP
-from models.open_CLIP_adapter import OpenCLIPAdapter
+#from models.open_CLIP import OpenCLIP
+#from models.open_CLIP_adapter import OpenCLIPAdapter
 
 
 def parse_args():
@@ -113,12 +113,8 @@ def classification(model, image_dataloader, labels, tokenizer, device, language,
         image_input = image_input.to(device)
         # compute the embedding of images and texts
         with torch.no_grad():
-            if args.ft_open_clip == 'True':
-                image_features = F.normalize(model.encode_image(image_input), dim=-1).cpu()
-            else:
-                image_features = F.normalize(model.encode_visual(image_input), dim=-1).cpu()
+            image_features = F.normalize(model.encode_image(image_input), dim=-1).cpu()
             text_features = F.normalize(model.encode_text(batch_texts_tok), dim=-1).cpu()
-
         all_images.append(image_input)
 
     df_list, images_selected = image_to_text_retrieval(image_features, text_features, all_images, batch_texts, sorted_df_similarities)
@@ -393,15 +389,16 @@ if __name__ == "__main__":
             model.load_adapters(pretrained_adapter=args.adapter)
     else:
         print('Using Baseline Model')
-        model = OpenCLIP()
+        model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
+        tokenizer = open_clip.get_tokenizer('ViT-B-32')
 
     # Define the model used to the classification
     if args.ft_open_clip == 'True':
         vision_processor = preprocess_val
         text_tokenizer = tokenizer 
     else:
-        vision_processor = model.image_preprocessor
-        text_tokenizer = model.text_tokenizer         
+        vision_processor = preprocess
+        text_tokenizer = tokenizer
 
     # Task selected
     if args.task == 'classification':
