@@ -43,8 +43,6 @@ def parse_args():
     parser.add_argument("--sorted-df-similarities", default=None, choices=["True", "False"])
     parser.add_argument("--sort-order", default=None, choices=["signal", "module"])
 
-
-
     return parser.parse_args()
 
 # class MMBiasDataset(Dataset) used to create a custom dataset for the images in the classification task
@@ -73,7 +71,7 @@ def image_to_text_retrieval(image_features, text_features, all_images, all_texts
     for image in range(image_features.shape[0]):
         images_selected.append(all_images[image])
         similarities = []
-        for i in range(len(text_features)):
+        for i in range(len(text_features)):  #tensor[:, :500]
             scores = text_features[i] @ image_features[image].t()  # shape: [batch_size, batch_size]
             item = {
                 'score': scores.cpu(),
