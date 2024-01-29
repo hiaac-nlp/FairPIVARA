@@ -63,7 +63,7 @@ PYTHON_BIN="/hahomes/diego.moreira/envs/haenv/bin/python3"
 export TRANSFORMERS_CACHE=/work/${USER}/hf_dir
 export HF_HOME=/work/${USER}/hf_dir
 
-${PYTHON_BIN} /hahomes/${USER}/FairPIVARA/temp/bias_mitigation.py \
+${PYTHON_BIN} /home/${USER}/FairPIVARA/bias_mitigation/bias_mitigation.py \
     --ft-open-clip=${FT_OPEN_CLIP} \
     --dataset-path=${DATASET_PATH} \
     --concepts=${CONCEPTS} \
