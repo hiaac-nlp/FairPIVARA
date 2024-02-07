@@ -15,56 +15,8 @@ import scipy.special
 import scipy.stats
 from sklearn.metrics.pairwise import cosine_similarity
 import argparse
-
-GPU = 4
-MAIN_PATH = '/hadatasets/MMBias'
-DATASET_PATH = '/hadatasets/MMBias/data'
-LANGUAGE_PATH = 'data'
-LANGUAGE = 'en'
-ft_open_clip = 'False'
-adapter = 'False'
-CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT'
-weighted_list='False'
-add_signal = 'True'
-sorted_df_similarities = 'True'
-top_similar = 15
-
-# device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
-device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
-print("Device: ", device)
-
-# with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
-with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
-    text_dataset = json.load(f)
-
-labels = {}
-labels['unpleasant_phrases'] = text_dataset['unpleasant_phrases']
-labels['pleasant_phrases'] = text_dataset['pleasant_phrases']
-del text_dataset['unpleasant_phrases'], text_dataset['pleasant_phrases']
-
-number_concepts = len(labels['unpleasant_phrases']) + len(labels['pleasant_phrases'])
-
-print(">>>>>>> Loading model")
-if ft_open_clip == 'True':
-    if adapter is None:
-        model, preprocess_train, preprocess_val = open_clip.create_model_and_transforms('hf-hub:hiaac-nlp/CAPIVARA')
-        tokenizer = open_clip.get_tokenizer('hf-hub:hiaac-nlp/CAPIVARA')
-    else:
-        model = OpenCLIPAdapter(inference=True, devices=device)
-        model.load_adapters(pretrained_adapter=args.adapter)
-else:
-    print('Using Baseline Model')
-    model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
-    tokenizer = open_clip.get_tokenizer('ViT-B-32')
-
-if ft_open_clip == 'True':
-    vision_processor = preprocess_val
-    text_tokenizer = tokenizer
-else:
-    vision_processor = preprocess
-    text_tokenizer = tokenizer
-
-EPS = np.finfo(float).eps
+import random
+from statistics import mean 
 
 def mutual_information_2d(x, y, sigma=1, normalized=False):
     """
@@ -125,7 +77,213 @@ class MMBiasDataset(Dataset):
         if self.transform:
             image = self.transform(image)
         return image
-    
+
+'''
+Implements the WEAT tests
+Adapted from https://github.com/W4ngatang/sent-bias/blob/master/sentbias/weat.py
+'''
+
+# X and Y are two sets of target words of equal size.
+# A and B are two sets of attribute words.
+
+
+class Test:
+    def __init__(self, X, Y, A, B, names=None):
+        """
+        A WEAT Test.
+
+        :param X: A set of target embeddings
+        :param Y: A set of target embeddings
+        :param A: A set of attribute embeddings
+        :param B: A set of attribute embeddings
+        :param names: Optional set of names for X, Y, A, and B, in order
+        :return: the effect size and p-value
+        """
+        self.X = X
+        self.Y = Y
+        self.A = A
+        self.B = B
+        self.names = names if names is not None else ["X", "Y", "A", "B"]
+        self.reset_calc()
+
+    def reset_calc(self):
+        self.similarity_matrix = self.similarities()
+        self.s_AB = None
+        self.calc_s_AB()
+
+    def run(self, randomized=False, **kwargs):
+        """
+        Run the test.
+        """
+        if randomized:
+            X_orig = self.X
+            Y_orig = self.Y
+            A_orig = self.A
+            B_orig = self.B
+            D = np.concatenate((self.X, self.Y, self.A, self.B))
+            np.random.shuffle(D)
+            self.X = D[:X_orig.shape[0],:]
+            self.Y = D[X_orig.shape[0]:2*X_orig.shape[0],:]
+            self.A = D[2*X_orig.shape[0]:2*X_orig.shape[0]+A_orig.shape[0], :]
+            self.B = D[2*X_orig.shape[0]+A_orig.shape[0]:, :]
+            self.reset_calc()
+
+        p = self.p(**kwargs)
+        e = self.effect_size()
+
+        if randomized:
+            self.X = X_orig
+            self.Y = Y_orig
+            self.A = A_orig
+            self.B = B_orig
+            self.reset_calc()
+        return e, p
+
+    def similarities(self):
+        """
+        :return: an array of size (len(XY), len(AB)) containing cosine similarities
+        between items in XY and items in AB.
+        """
+        XY = np.concatenate((self.X, self.Y))
+        AB = np.concatenate((self.A, self.B))
+        return cosine_similarity(XY, AB)
+
+    def calc_s_AB(self):
+        self.s_AB = self.s_wAB(np.arange(self.similarity_matrix.shape[0]))
+
+    def s_wAB(self, w):
+        """
+        Return vector of s(w, A, B) across w, where
+            s(w, A, B) = mean_{a in A} cos(w, a) - mean_{b in B} cos(w, b).
+
+        :param w: Mask on the XY axis of similarity matrix
+        """
+        return self.similarity_matrix[w, :self.A.shape[0]].mean(axis=1) - self.similarity_matrix[w, self.A.shape[0]:].mean(axis=1)
+
+    def s_XAB(self, mask):
+        r"""
+        Given indices of target concept X and precomputed s_wAB values,
+        return slightly more computationally efficient version of WEAT
+        statistic for p-value computation.
+        Caliskan defines the WEAT statistic s(X, Y, A, B) as
+            sum_{x in X} s(x, A, B) - sum_{y in Y} s(y, A, B)
+        where s(w, A, B) is defined as
+            mean_{a in A} cos(w, a) - mean_{b in B} cos(w, b).
+        The p-value is computed using a permutation test on (X, Y) over all
+        partitions (X', Y') of X union Y with |X'| = |Y'|.
+        However, for all partitions (X', Y') of X union Y,
+            s(X', Y', A, B)
+          = sum_{x in X'} s(x, A, B) + sum_{y in Y'} s(y, A, B)
+          = C,
+        a constant.  Thus
+            sum_{x in X'} s(x, A, B) + sum_{y in Y'} s(y, A, B)
+          = sum_{x in X'} s(x, A, B) + (C - sum_{x in X'} s(x, A, B))
+          = C + 2 sum_{x in X'} s(x, A, B).
+        By monotonicity,
+            s(X', Y', A, B) > s(X, Y, A, B)
+        if and only if
+            [s(X', Y', A, B) - C] / 2 > [s(X, Y, A, B) - C] / 2,
+        that is,
+            sum_{x in X'} s(x, A, B) > sum_{x in X} s(x, A, B).
+        Thus we only need use the first component of s(X, Y, A, B) as our
+        test statistic.
+
+        :param mask: some random X partition of XY - in the form of a mask on XY
+        """
+        return self.s_AB[mask].sum()
+
+    def s_XYAB(self, X, Y):
+        r"""
+        Given indices of target concept X and precomputed s_wAB values,
+        the WEAT test statistic for p-value computation.
+
+        :param X: Mask for XY indicating the values in partition X
+        :param Y: Mask for XY indicating the values in partition Y
+        """
+        return self.s_XAB(X) - self.s_XAB(Y)
+
+    def p(self, n_samples=10000, parametric=False):
+        """
+        Compute the p-val for the permutation test, which is defined as
+        the probability that a random even partition X_i, Y_i of X u Y
+        satisfies P[s(X_i, Y_i, A, B) > s(X, Y, A, B)]
+        """
+        assert self.X.shape[0] == self.Y.shape[0]
+        size = self.X.shape[0]
+
+        XY = np.concatenate((self.X, self.Y))
+
+        if parametric:
+            s = self.s_XYAB(np.arange(self.X.shape[0]), np.arange(self.X.shape[0], self.X.shape[0]+self.Y.shape[0]))
+
+            samples = []
+            for _ in range(n_samples):
+                a = np.arange(XY.shape[0])
+                np.random.shuffle(a)
+                Xi = a[:size]
+                Yi = a[size:]
+                assert len(Xi) == len(Yi)
+                si = self.s_XYAB(Xi, Yi)
+                samples.append(si)
+
+            # Compute sample standard deviation and compute p-value by
+            # assuming normality of null distribution
+            sample_mean = np.mean(samples)
+            sample_std = np.std(samples, ddof=1)
+            p_val = scipy.stats.norm.sf(s, loc=sample_mean, scale=sample_std)
+            return p_val
+
+        else:
+            s = self.s_XAB(np.arange(self.X.shape[0]))
+            total_true = 0
+            total_equal = 0
+            total = 0
+
+            num_partitions = int(scipy.special.binom(2 * self.X.shape[0], self.X.shape[0]))
+            if num_partitions > n_samples:
+                # We only have as much precision as the number of samples drawn;
+                # bias the p-value (hallucinate a positive observation) to
+                # reflect that.
+                total_true += 1
+                total += 1
+                for i in range(n_samples - 1):
+                    a = np.arange(XY.shape[0])
+                    np.random.shuffle(a)
+                    Xi = a[:size]
+                    assert 2 * len(Xi) == len(XY)
+                    si = self.s_XAB(Xi)
+                    if si > s:
+                        total_true += 1
+                    elif si == s:  # use conservative test
+                        total_true += 1
+                        total_equal += 1
+                    total += 1
+            else:
+                # iterate through all possible X-length combinations of the indices of XY
+                for Xi in it.combinations(np.arange(XY.shape[0]), self.X.shape[0]):
+                    assert 2 * len(Xi) == len(XY)
+                    si = self.s_XAB(np.array(Xi))
+                    if si > s:
+                        total_true += 1
+                    elif si == s:  # use conservative test
+                        total_true += 1
+                        total_equal += 1
+                    total += 1
+
+            return total_true / total
+
+    def effect_size(self):
+        """
+        Compute the effect size, which is defined as
+            [mean_{x in X} s(x, A, B) - mean_{y in Y} s(y, A, B)] /
+                [ stddev_{w in X u Y} s(w, A, B) ]
+        args:
+            - X, Y, A, B : sets of target (X, Y) and attribute (A, B) indices
+        """
+        numerator = np.mean(self.s_wAB(np.arange(self.X.shape[0]))) - np.mean(self.s_wAB(np.arange(self.X.shape[0], self.similarity_matrix.shape[0])))
+        denominator = np.std(self.s_AB, ddof=1)
+        return numerator / denominator
+
 def all_features(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar):
     # Create the file sistem
     concepts = concepts.replace('|', ' ')
@@ -178,17 +336,6 @@ def all_features(concepts, dataset_path, vision_processor, model, labels, text_t
 
     # batch_text and all_images used only in classification pipeline
     return all_features, batch_texts, all_images
-
-all_features_values, batch_texts, all_images = all_features(CONCEPTS, DATASET_PATH, vision_processor, model, labels, text_tokenizer, device, LANGUAGE, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar)
-text_features = torch.cat((all_features_values['unpleasant_phrases'], all_features_values['pleasant_phrases']), 0)
-
-combination_list = {}
-for global_concept in all_features_values:
-    try:
-        micro_concept = list(all_features_values[global_concept].keys())
-        combination_list[global_concept] = (list(itertools.combinations(micro_concept, 2)))
-    except:
-        pass
 
 def image_to_text_retrieval(image_features, text_features, all_images, all_texts, sorted_df_similarities,dimensions=None):
     # images_selected = []
@@ -390,14 +537,135 @@ def single_bias_mitigation_algorithm(X, n, theta):
             best_dimension_bias = (psi,removed_dimensions)
     return best_dimension_bias
 
-theta = [0, 0.25, 0.5, 0.75, 1]
-concepts = CONCEPTS.replace('|', ' ')
-print(f'Theta, Concept, O-Bias, D-Bias, R-Dimensions')
-for t in theta: 
-    # List thought all the concepts
-    bias_list = [item for item in concepts.split(',')]
-    for bias in bias_list:
-        folder1= bias.split('/')[0]
-        folder2= bias.split('/')[1]
-        best_dimension_bias = single_bias_mitigation_algorithm(all_features_values[folder1][folder2],54,t)
-        print(f'{t}, {bias}, {unique_bias_mean(all_features_values[folder1][folder2])[0]}, {best_dimension_bias[0]}, {best_dimension_bias[1]}')
+GPU = 6
+MAIN_PATH = '/hadatasets/MMBias'
+DATASET_PATH = '/hadatasets/MMBias/data'
+LANGUAGE_PATH = 'data'
+LANGUAGE = 'en'
+ft_open_clip = 'False'
+adapter = 'False'
+CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT'
+weighted_list='False'
+add_signal = 'True'
+sorted_df_similarities = 'True'
+top_similar = 15
+module = 'bias_calculation'
+repeat_times = 10000
+
+# device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
+print("Device: ", device)
+
+# with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
+with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
+    text_dataset = json.load(f)
+
+labels = {}
+labels['unpleasant_phrases'] = text_dataset['unpleasant_phrases']
+labels['pleasant_phrases'] = text_dataset['pleasant_phrases']
+del text_dataset['unpleasant_phrases'], text_dataset['pleasant_phrases']
+
+number_concepts = len(labels['unpleasant_phrases']) + len(labels['pleasant_phrases'])
+
+if ft_open_clip == 'True':
+    if adapter is None:
+        model, preprocess_train, preprocess_val = open_clip.create_model_and_transforms('hf-hub:hiaac-nlp/CAPIVARA')
+        tokenizer = open_clip.get_tokenizer('hf-hub:hiaac-nlp/CAPIVARA')
+    else:
+        model = OpenCLIPAdapter(inference=True, devices=device)
+        model.load_adapters(pretrained_adapter=args.adapter)
+else:
+    model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
+    tokenizer = open_clip.get_tokenizer('ViT-B-32')
+
+if ft_open_clip == 'True':
+    vision_processor = preprocess_val
+    text_tokenizer = tokenizer
+else:
+    vision_processor = preprocess
+    text_tokenizer = tokenizer
+
+EPS = np.finfo(float).eps
+
+all_features_values, batch_texts, all_images = all_features(CONCEPTS, DATASET_PATH, vision_processor, model, labels, text_tokenizer, device, LANGUAGE, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar)
+text_features = torch.cat((all_features_values['unpleasant_phrases'], all_features_values['pleasant_phrases']), 0)
+
+combination_list = {}
+for global_concept in all_features_values:
+    try:
+        micro_concept = list(all_features_values[global_concept].keys())
+        combination_list[global_concept] = (list(itertools.combinations(micro_concept, 2)))
+    except:
+        pass
+
+if module == 'extract_bias':
+    theta = [0, 0.25, 0.5, 0.75, 1]
+    concepts = CONCEPTS.replace('|', ' ')
+    # print(f'Theta, Concept, O-Bias, D-Bias, R-Dimensions')
+    for t in theta: 
+        # List thought all the concepts
+        bias_list = [item for item in concepts.split(',')]
+        for bias in bias_list:
+            folder1= bias.split('/')[0]
+            folder2= bias.split('/')[1]
+            best_dimension_bias = single_bias_mitigation_algorithm(all_features_values[folder1][folder2],54,t)
+            print(f'{t}, {folder2}, {unique_bias_mean(all_features_values[folder1][folder2])[0]}, {best_dimension_bias[0]}, {best_dimension_bias[1]}')
+
+if module == 'bias_calculation':
+    with open('results_theta_0-50.txt') as f:
+        lines = f.readlines()
+        concepts = {}
+        for line in lines:
+            partition = line.split('[')
+            value = partition[0].split(',')
+            concepts[value[1].strip()] = partition[1].strip()[:-1].split(', ')
+
+    A_feature = all_features_values["unpleasant_phrases"].clone()
+    B_feature = all_features_values["pleasant_phrases"].clone()
+    for i in range(54):
+        remove_value = random.randint(0,A_feature.size()[1])
+        A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
+        B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
+
+    mean_result = {}
+    start = time.time()
+    for repeat in range(repeat_times):
+        for global_concept in combination_list:
+            for micro_concept in combination_list[global_concept]:
+                # print(f'----- {global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]} -----')
+                    
+                num_dimensions = len(concepts[micro_concept[0]]) if len(concepts[micro_concept[0]]) < len(concepts[micro_concept[1]]) else len(concepts[micro_concept[1]])
+
+                count = 0
+                X_feature = None
+                for i, dim in enumerate(range(all_features_values[global_concept][micro_concept[0]].size()[1])):
+                    if str(i) not in concepts[micro_concept[0]][:num_dimensions]:
+                        if X_feature == None:
+                            X_feature = all_features_values[global_concept][micro_concept[0]][:,i][:,None]
+                        else:
+                            X_feature = torch.cat([X_feature, all_features_values[global_concept][micro_concept[0]][:,i][:,None]], dim=1)
+
+                count = 0
+                Y_feature = None
+                for i, dim in enumerate(range(all_features_values[global_concept][micro_concept[1]].size()[1])):
+                    if str(i) not in concepts[micro_concept[1]][:num_dimensions]:
+                        if Y_feature == None:
+                            Y_feature = all_features_values[global_concept][micro_concept[1]][:,i][:,None]
+                        else:
+                            Y_feature = torch.cat([Y_feature, all_features_values[global_concept][micro_concept[1]][:,i][:,None]], dim=1)
+
+                test = Test(X_feature.detach().numpy(),Y_feature.detach().numpy(),A_feature.detach().numpy(),B_feature.detach().numpy())
+                pval = test.run(n_samples=250)
+                e,p = test.run()
+                # print(f'e: {e}, p: {p}')
+
+                if f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}' not in mean_result:
+                    mean_result[f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}'] = [e]
+                else:
+                    mean_result[f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}'].append(e)
+            
+    for concept_value in mean_result:
+        print(f'{concept_value}: {mean(mean_result[concept_value])}')
+    end = time.time()
+    print(end - start)
+    print(repeat_times)

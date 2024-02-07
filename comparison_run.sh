@@ -52,6 +52,9 @@ TASK='comparison'
 PRINT='exel'
 SCORE_OR_QUANT='score'
 
+export TRANSFORMERS_CACHE=/work/${USER}/hf_dir
+export HF_HOME=/work/${USER}/hf_dir
+
 echo "Running the FairPIVARA in GPU ${GPU}."
 PYTHON_BIN="/hahomes/diego.moreira/envs/haenv/bin/python3"
 

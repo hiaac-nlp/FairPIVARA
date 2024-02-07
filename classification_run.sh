@@ -55,6 +55,9 @@ SCORE_OR_QUANT='both_operation'
 WEIGHTED_LIST='False'
 TOP_SIMILAR=15
 
+export TRANSFORMERS_CACHE=/work/${USER}/hf_dir
+export HF_HOME=/work/${USER}/hf_dir
+
 # Bias Assessment - Comparison
 
 echo "Running the FairPIVARA in GPU ${GPU}."
