@@ -549,6 +549,7 @@ weighted_list='False'
 add_signal = 'True'
 sorted_df_similarities = 'True'
 top_similar = 15
+embedding_dimension=512
 module = 'bias_calculation'
 repeat_times = [100,1000,10000]
 file_with_dimensions = 'results/theta-001to005/results_theta_0-03.txt'
@@ -641,7 +642,7 @@ if module == 'bias_calculation':
                         num_dimensions = 0
                     else:
                         num_dimensions = len(concepts[micro_concept[0]]) if len(concepts[micro_concept[0]]) < len(concepts[micro_concept[1]]) else len(concepts[micro_concept[1]])
-
+                    print(f'removing {num_dimensions} dimensions, remaning {embedding_dimension - num_dimensions} dimensions')
                     # print(f'DIMENSIONS OF MICROCONCEPT 1: {len(concepts[micro_concept[0]])}, {concepts[micro_concept[0]]}, MICROCONCEPT 2: {len(concepts[micro_concept[1]])}, {concepts[micro_concept[1]]}')
                     # print(f'NUM_DIMENSIONS: {num_dimensions}')
                     X_feature = None
@@ -662,13 +663,12 @@ if module == 'bias_calculation':
 
                     A_feature = all_features_values["unpleasant_phrases"].clone()
                     B_feature = all_features_values["pleasant_phrases"].clone()
-                    for i in range(num_dimensions):
-                        print(i)
+                    while A_feature.size()[1] > (embedding_dimension-num_dimensions):
                         remove_value = random.randint(0,A_feature.size()[1])
                         A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
                         B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
 
-                    # print(f'DIMENSÕES: X {X_feature.size()}, Y {Y_feature.size()}, A {A_feature.size()}, B {B_feature.size()}')
+                    print(f'DIMENSÕES: X {X_feature.size()}, Y {Y_feature.size()}, A {A_feature.size()}, B {B_feature.size()}')
                     
                     test = Test(X_feature.detach().numpy(),Y_feature.detach().numpy(),A_feature.detach().numpy(),B_feature.detach().numpy())
                     pval = test.run(n_samples=250)
