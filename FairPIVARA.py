@@ -552,7 +552,7 @@ top_similar = 15
 embedding_dimension=512
 module = 'bias_calculation'
 repeat_times = [100,1000,10000]
-file_with_dimensions = 'results/theta-001to005/results_theta_0-03.txt'
+file_with_dimensions = 'results/theta-001to005/results_theta_0-05.txt'
 
 # device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
@@ -622,13 +622,6 @@ if module == 'bias_calculation':
             partition = line.split('[')
             value = partition[0].split(',')
             concepts[value[1].strip()] = partition[1].strip()[:-1].split(', ')
-
-    # A_feature = all_features_values["unpleasant_phrases"].clone()
-    # B_feature = all_features_values["pleasant_phrases"].clone()
-    # for i in range(54):
-    #     remove_value = random.randint(0,A_feature.size()[1])
-    #     A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
-    #     B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
     
     for repeat in repeat_times:
         mean_result = {}

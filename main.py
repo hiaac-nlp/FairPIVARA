@@ -42,6 +42,8 @@ def parse_args():
     parser.add_argument("--add-signal", default=None, choices=["True", "False"])
     parser.add_argument("--sorted-df-similarities", default=None, choices=["True", "False"])
     parser.add_argument("--sort-order", default=None, choices=["signal", "module"])
+    parser.add_argument("--remove-dimensions-list", type=str, default=None, required=False,
+                        help="File with list of dimensions to remove")
 
     return parser.parse_args()
 
@@ -87,7 +89,7 @@ def image_to_text_retrieval(image_features, text_features, all_images, all_texts
             df_list.append(similarities_df)
     return df_list, images_selected
 
-def classification(model, image_dataloader, labels, tokenizer, device, language, sorted_df_similarities):
+def classification(model, image_dataloader, labels, tokenizer, device, language, sorted_df_similarities, remove_dimensions):
     if language == 'en':
         template = "[CLASS] person"
     elif language == 'pt-br':
@@ -115,7 +117,25 @@ def classification(model, image_dataloader, labels, tokenizer, device, language,
             text_features = F.normalize(model.encode_text(batch_texts_tok), dim=-1).cpu()
         all_images.append(image_input)
 
-    df_list, images_selected = image_to_text_retrieval(image_features, text_features, all_images, batch_texts, sorted_df_similarities)
+    if remove_dimensions != None:
+        # remove a list of dimensions if required from the image and text embeddings
+        i_features = None
+        for i, dim in enumerate(range(image_features.size()[1])):
+            if str(i) not in remove_dimensions:
+                if i_features == None:
+                    i_features = image_features[:,i][:,None]
+                else:
+                    i_features = torch.cat([i_features, image_features[:,i][:,None]], dim=1)
+        t_features = None
+        for i, dim in enumerate(range(text_features.size()[1])):
+            if str(i) not in remove_dimensions:
+                if t_features == None:
+                    t_features = text_features[:,i][:,None]
+                else:
+                    t_features = torch.cat([t_features, text_features[:,i][:,None]], dim=1)
+        df_list, images_selected = image_to_text_retrieval(i_features, t_features, all_images, batch_texts, sorted_df_similarities)
+    else:
+        df_list, images_selected = image_to_text_retrieval(image_features, text_features, all_images, batch_texts, sorted_df_similarities)
     return df_list, images_selected
 
 def Convert(tup, di):
@@ -223,7 +243,7 @@ def add_list_signal_in_ziplist(ziplist, language):
                 ziplist[i] = (ziplist[i][0], ziplist[i][1])
     return ziplist
 
-def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar):
+def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar,remove_dimensions_list):
     # Create the file sistem
     concepts = concepts.replace('|', ' ')
     # List thought all the concepts
@@ -239,8 +259,13 @@ def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_t
         custom_dataset = MMBiasDataset(f'{dataset_path}/Images/{bias}', image_preprocessor=vision_processor)
         dataloader = DataLoader(custom_dataset, batch_size=len(custom_dataset), shuffle=False) 
 
+        if remove_dimensions_list != None:
+            remove_dimensions = remove_dimensions_list[folder2]
+        else:
+            remove_dimensions = None
+        
         # DO the classification
-        df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities)
+        df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities, remove_dimensions=remove_dimensions)
         list_of_concepts = []
 
         # Add the firt "number of concepts" (default = 15) in the dict
@@ -364,7 +389,6 @@ def caliskan_test(concepts, dataset_path, vision_processor, model, labels, text_
 
 if __name__ == "__main__":
     args = parse_args()
-    print(args)
 
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     print("Device: ", device)
@@ -416,8 +440,19 @@ if __name__ == "__main__":
             sorted_df_similarities = 'True'
         else:
             sorted_df_similarities = args.sorted_df_similarities
+        
+        if args.remove_dimensions_list != None:
+            with open(args.remove_dimensions_list) as f:
+                lines = f.readlines()   
+                remove_dimensions_list = {}
+                for line in lines:
+                    partition = line.split('[')
+                    value = partition[0].split(',')
+                    remove_dimensions_list[value[1].strip()] = partition[1].strip()[:-1].split(', ')
+        else:
+            remove_dimensions_list = None
 
-        all_bias = extract_bias(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, number_concepts, weighted_list, add_signal, sorted_df_similarities,args.top_similar)
+        all_bias = extract_bias(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, number_concepts, weighted_list, add_signal, sorted_df_similarities,args.top_similar, remove_dimensions_list)
         show_results(all_bias, args.print, args.score_or_quant, args.language,args.top_similar,add_signal)
 
     elif args.task == 'comparison':
