@@ -17,6 +17,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 import argparse
 import random
 from statistics import mean 
+import sys
 
 def mutual_information_2d(x, y, sigma=1, normalized=False):
     """
@@ -537,7 +538,7 @@ def single_bias_mitigation_algorithm(X, n, theta):
             best_dimension_bias = (psi,removed_dimensions)
     return best_dimension_bias
 
-GPU = 2 # 0->4, 1->6, 2->7, 3->0
+GPU = 4 # 0->4, 1->6, 2->7, 3->0, 4->1
 MAIN_PATH = '/hadatasets/MMBias'
 DATASET_PATH = '/hadatasets/MMBias/data'
 LANGUAGE_PATH = 'data'
@@ -551,8 +552,11 @@ sorted_df_similarities = 'True'
 top_similar = 15
 embedding_dimension=512
 module = 'bias_calculation'
-repeat_times = [100,1000,10000]
-file_with_dimensions = 'results/theta-001to005/results_theta_0-05.txt'
+repeat_times = [1,100,1000,10000]
+bias_type = 'separately' #'random, separately, together'
+# file_with_dimensions = 'results/theta-001to005/results_theta_0-05.txt'
+file_with_dimensions = 'results/theta-001to005/results_theta_same_values.txt'
+# file_with_dimensions = 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
 
 # device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
@@ -600,8 +604,8 @@ for global_concept in all_features_values:
         combination_list[global_concept] = (list(itertools.combinations(micro_concept, 2)))
     except:
         pass
-
-if module == 'extract_bias':
+# Calcula quais dimensões devem ser removidas de forma separada, por classe
+if module == 'calculate_bias_separately':
     theta = [0.01, 0.02, 0.03, 0.04, 0.05]
     concepts = CONCEPTS.replace('|', ' ')
     # print(f'Theta, Concept, O-Bias, D-Bias, R-Dimensions')
@@ -614,18 +618,53 @@ if module == 'extract_bias':
             best_dimension_bias = single_bias_mitigation_algorithm(all_features_values[folder1][folder2],54,t)
             print(f'{t}, {folder2}, {unique_bias_mean(all_features_values[folder1][folder2])[0]}, {best_dimension_bias[0]}, {best_dimension_bias[1]}')
 
+# Calcula quais dimensões devem ser removidas em conjunto, para todas as classes
+if module == 'calculate_bias_together':
+    theta = [0.01, 0.02, 0.03, 0.04, 0.05]
+    concepts = CONCEPTS.replace('|', ' ')
+
+    # List thought all the concepts
+    bias_list = [item for item in concepts.split(',')]
+    complete_all_features_values = []
+    for bias in bias_list:
+        folder1= bias.split('/')[0]
+        folder2= bias.split('/')[1]
+
+        complete_all_features_values.append(all_features_values[folder1][folder2])
+    complete_all_features_values = torch.cat(complete_all_features_values, axis=0)
+
+    for t in theta: 
+        best_dimension_bias = single_bias_mitigation_algorithm(complete_all_features_values,54,t)
+        print(f'{t}, Total bias together, {unique_bias_mean(all_features_values[folder1][folder2])[0]}, {best_dimension_bias[0]}, {best_dimension_bias[1]}')
+
+# Calcula o bias comparativos entre duas classes a partir de um conjuntos de dimensões a serem removidas. Como entrada um arquivo txt com as dimensões
 if module == 'bias_calculation':
     with open(file_with_dimensions) as f:
-        lines = f.readlines()
-        concepts = {}
-        for line in lines:
+        if bias_type == 'separately' or bias_type == 'random':
+            lines = f.readlines()
+            concepts = {}
+            for line in lines:
+                partition = line.split('[')
+                value = partition[0].split(',')
+                concepts[value[1].strip()] = partition[1].strip()[:-1].split(', ')
+        elif bias_type == 'together':
+            concepts = {}
+            line = f.readline()
             partition = line.split('[')
-            value = partition[0].split(',')
-            concepts[value[1].strip()] = partition[1].strip()[:-1].split(', ')
+            my_concepts = CONCEPTS.replace('|', ' ')
+            # List thought all the my_concepts
+            bias_list = [item for item in my_concepts.split(',')]
+            complete_all_features_values = []
+            for bias in bias_list:
+                folder1= bias.split('/')[0]
+                folder2= bias.split('/')[1]
+                concepts[folder2]=partition[1].strip()[:-1].split(', ')
+            repeat_times = [1]
     
     for repeat in repeat_times:
         mean_result = {}
         start = time.time()
+        all_results = []
         for _ in range(repeat):
             for global_concept in combination_list:
                 for micro_concept in combination_list[global_concept]:
@@ -638,28 +677,61 @@ if module == 'bias_calculation':
                     # print(f'removing {num_dimensions} dimensions, remaning {embedding_dimension - num_dimensions} dimensions')
                     # print(f'DIMENSIONS OF MICROCONCEPT 1: {len(concepts[micro_concept[0]])}, {concepts[micro_concept[0]]}, MICROCONCEPT 2: {len(concepts[micro_concept[1]])}, {concepts[micro_concept[1]]}')
                     # print(f'NUM_DIMENSIONS: {num_dimensions}')
-                    X_feature = None
-                    for i, dim in enumerate(range(all_features_values[global_concept][micro_concept[0]].size()[1])):
-                        if str(i) not in concepts[micro_concept[0]][:num_dimensions]:
-                            if X_feature == None:
-                                X_feature = all_features_values[global_concept][micro_concept[0]][:,i][:,None]
-                            else:
-                                X_feature = torch.cat([X_feature, all_features_values[global_concept][micro_concept[0]][:,i][:,None]], dim=1)
+                        
+                    if bias_type == 'random':
+                        X_feature = all_features_values[global_concept][micro_concept[0]].clone()
+                        Y_feature = all_features_values[global_concept][micro_concept[1]].clone()
+                        A_feature = all_features_values["unpleasant_phrases"].clone()
+                        B_feature = all_features_values["pleasant_phrases"].clone()
+                        while A_feature.size()[1] > (embedding_dimension-num_dimensions):
+                            remove_value = random.randint(0,A_feature.size()[1])
+                            X_feature = torch.cat([X_feature[:, :remove_value], X_feature[:, remove_value+1:]], dim=1)
+                            Y_feature = torch.cat([Y_feature[:, :remove_value], Y_feature[:, remove_value+1:]], dim=1)
+                            A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
+                            B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
+                    else:
+                        X_feature = None
+                        for i, dim in enumerate(range(all_features_values[global_concept][micro_concept[0]].size()[1])):
+                            if str(i) not in concepts[micro_concept[0]][:num_dimensions]:
+                                if X_feature == None:
+                                    X_feature = all_features_values[global_concept][micro_concept[0]][:,i][:,None]
+                                else:
+                                    X_feature = torch.cat([X_feature, all_features_values[global_concept][micro_concept[0]][:,i][:,None]], dim=1)
 
-                    Y_feature = None
-                    for i, dim in enumerate(range(all_features_values[global_concept][micro_concept[1]].size()[1])):
-                        if str(i) not in concepts[micro_concept[1]][:num_dimensions]:
-                            if Y_feature == None:
-                                Y_feature = all_features_values[global_concept][micro_concept[1]][:,i][:,None]
-                            else:
-                                Y_feature = torch.cat([Y_feature, all_features_values[global_concept][micro_concept[1]][:,i][:,None]], dim=1)
-
-                    A_feature = all_features_values["unpleasant_phrases"].clone()
-                    B_feature = all_features_values["pleasant_phrases"].clone()
-                    while A_feature.size()[1] > (embedding_dimension-num_dimensions):
-                        remove_value = random.randint(0,A_feature.size()[1])
-                        A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
-                        B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
+                        Y_feature = None
+                        for i, dim in enumerate(range(all_features_values[global_concept][micro_concept[1]].size()[1])):
+                            if str(i) not in concepts[micro_concept[1]][:num_dimensions]:
+                                if Y_feature == None:
+                                    Y_feature = all_features_values[global_concept][micro_concept[1]][:,i][:,None]
+                                else:
+                                    Y_feature = torch.cat([Y_feature, all_features_values[global_concept][micro_concept[1]][:,i][:,None]], dim=1)
+                        # Caso as dimensões sejam independentes por conceito, as dimensões demovidas de A e B são aleatórias, para uma comparação justa.
+                        if bias_type == 'separately':
+                            A_feature = all_features_values["unpleasant_phrases"].clone()
+                            B_feature = all_features_values["pleasant_phrases"].clone()
+                            while A_feature.size()[1] > (embedding_dimension-num_dimensions):
+                                remove_value = random.randint(0,A_feature.size()[1])
+                                A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
+                                B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
+                        # Caso as dimensões sejam todos iguais, não se remove de forma aleatória, porém as mesmas dimensões de A e B.
+                        elif bias_type == 'together':
+                            A_feature = None
+                            for i, dim in enumerate(range(all_features_values["unpleasant_phrases"].size()[1])):
+                                if str(i) not in concepts[micro_concept[0]][:num_dimensions]:
+                                    if A_feature == None:
+                                        A_feature = all_features_values["unpleasant_phrases"][:,i][:,None]
+                                    else:
+                                        A_feature = torch.cat([A_feature, all_features_values["unpleasant_phrases"][:,i][:,None]], dim=1)
+                            B_feature = None
+                            for i, dim in enumerate(range(all_features_values["pleasant_phrases"].size()[1])):
+                                if str(i) not in concepts[micro_concept[1]][:num_dimensions]:
+                                    if B_feature == None:
+                                        B_feature = all_features_values["pleasant_phrases"][:,i][:,None]
+                                    else:
+                                        B_feature = torch.cat([B_feature, all_features_values["pleasant_phrases"][:,i][:,None]], dim=1)
+                        else:
+                            print('bias type not implemented')
+                            sys.exit("You chose to quit the program.")
 
                     # print(f'DIMENSÕES: X {X_feature.size()}, Y {Y_feature.size()}, A {A_feature.size()}, B {B_feature.size()}')
                     
@@ -670,9 +742,13 @@ if module == 'bias_calculation':
 
                     if f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}' not in mean_result:
                         mean_result[f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}'] = [e]
+                        all_results.append([X_feature,Y_feature,A_feature,B_feature,e])
                     else:
                         mean_result[f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}'].append(e)
-                
+                        all_results.append([X_feature,Y_feature,A_feature,B_feature,e])
+
+        df = pd.DataFrame(all_results, columns=['X_feature', 'Y_feature','A_feature','B_feature','e'])
+        df.to_csv('results_in_csv.csv')
         for concept_value in mean_result:
             print(f'{concept_value}: {mean(mean_result[concept_value])}')
         end = time.time()

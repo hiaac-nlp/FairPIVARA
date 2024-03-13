@@ -71,7 +71,7 @@ ${PYTHON_BIN} /home/${USER}/FairPIVARA/main.py \
     --task=${TASK} \
     --language=${LANGUAGE} \
     --weighted-list=${WEIGHTED_LIST} \
-    --gpu=${GPU} \
+        
     --print=${PRINT} \
     --score-or-quant=${SCORE_OR_QUANT} \
     --top-similar=${TOP_SIMILAR} \

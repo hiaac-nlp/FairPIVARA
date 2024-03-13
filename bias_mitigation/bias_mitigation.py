@@ -354,8 +354,6 @@ def bias_mitigation_algorithm(X, Y, A, B, n, theta):
     pval = test.run(n_samples=250)
     psi,p = test.run()
 
-    # print(f'Initial Bias: {psi}')
-    # print(f'temps dimension: {X.size()},{Y.size()},{A.size()},{B.size()}')
     for d in range(X.size(1)):
         X_temp = X.clone()
         Y_temp = Y.clone()
@@ -367,23 +365,16 @@ def bias_mitigation_algorithm(X, Y, A, B, n, theta):
         Y_temp = torch.cat([Y_temp[:, :d], Y_temp[:, d+1:]], dim=1)
         A_temp = torch.cat([A_temp[:, :d], A_temp[:, d+1:]], dim=1)
         B_temp = torch.cat([B_temp[:, :d], B_temp[:, d+1:]], dim=1)
-        # print(f'dimension {d} removed')
-        # print(f'New temps dimensions: {X_temp.size()},{Y_temp.size()},{A_temp.size()},{B_temp.size()}')
         # Calcular o MI
         # mi = compute_bias(X_temp, Y_temp, A_temp, B_temp)
         test = Test(X_temp.detach().numpy(),Y_temp.detach().numpy(),A_temp.detach().numpy(),B_temp.detach().numpy())
         pval = test.run(n_samples=250)
         mi,p = test.run()
 
-        # print('New bias')
-        # print(f'mi: {mi}, theta: {theta}')
         if abs(psi) < abs(mi):
             x.add((d, mi))
-        # print('---------------------------------------------------')
-    # print('Out of loop')
-    # Ordenar e selecionar as dimensões a serem removidas
+ 
     z = sorted(x, key=lambda item: item[1],reverse=True)[:n]
-    # print(f'Valores de Z: {z}')
 
     # Remover as dimensões selecionadas
     best_dimension_bias = (99999,[])

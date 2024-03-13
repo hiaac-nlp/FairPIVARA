@@ -43,7 +43,7 @@
 
 #Classification
 FT_OPEN_CLIP='False'
-GPU=2
+GPU=4
 DATASET_PATH="/hadatasets/MMBias/data"
 # | for space and , for and
 CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT'
@@ -60,8 +60,8 @@ TOP_SIMILAR=15
 echo "Running the FairPIVARA in GPU ${GPU}."
 PYTHON_BIN="/hahomes/diego.moreira/envs/haenv/bin/python3"
 
-export TRANSFORMERS_CACHE=/work/${USER}/hf_dir
-export HF_HOME=/work/${USER}/hf_dir
+export TRANSFORMERS_CACHE=/home/${USER}/hf_dir
+export HF_HOME=/home/${USER}/hf_dir
 
 ${PYTHON_BIN} /home/${USER}/FairPIVARA/bias_mitigation/bias_mitigation.py \
     --ft-open-clip=${FT_OPEN_CLIP} \
