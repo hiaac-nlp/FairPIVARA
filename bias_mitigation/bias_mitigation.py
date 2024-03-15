@@ -419,7 +419,8 @@ if __name__ == "__main__":
             model, preprocess_train, preprocess_val = open_clip.create_model_and_transforms('hf-hub:hiaac-nlp/CAPIVARA')
             tokenizer = open_clip.get_tokenizer('hf-hub:hiaac-nlp/CAPIVARA')
         else:
-            model = OpenCLIPAdapter(inference=True, devices=device)
+            model = OpenCLIPAdapter(inference=True, devices=device)[X_orig.shape[0]:2*X_orig.shape[0],:]
+            self.A = D[2*X_orig.shape[0]:2*X_orig.shape[0]+A_orig.shape[0], :]
             model.load_adapters(pretrained_adapter=args.adapter)
     else:
         print('Using Baseline Model')

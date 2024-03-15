@@ -538,7 +538,7 @@ def single_bias_mitigation_algorithm(X, n, theta):
             best_dimension_bias = (psi,removed_dimensions)
     return best_dimension_bias
 
-GPU = 4 # 0->4, 1->6, 2->7, 3->0, 4->1
+GPU = 2 # 0->4, 1->6, 2->7, 3->0, 4->1, 6 -> 3
 MAIN_PATH = '/hadatasets/MMBias'
 DATASET_PATH = '/hadatasets/MMBias/data'
 LANGUAGE_PATH = 'data'
@@ -552,7 +552,8 @@ sorted_df_similarities = 'True'
 top_similar = 15
 embedding_dimension=512
 module = 'bias_calculation'
-repeat_times = [1,100,1000,10000]
+N_size = 54
+repeat_times = [1]
 bias_type = 'separately' #'random, separately, together'
 # file_with_dimensions = 'results/theta-001to005/results_theta_0-05.txt'
 file_with_dimensions = 'results/theta-001to005/results_theta_same_values.txt'
@@ -615,7 +616,7 @@ if module == 'calculate_bias_separately':
         for bias in bias_list:
             folder1= bias.split('/')[0]
             folder2= bias.split('/')[1]
-            best_dimension_bias = single_bias_mitigation_algorithm(all_features_values[folder1][folder2],54,t)
+            best_dimension_bias = single_bias_mitigation_algorithm(all_features_values[folder1][folder2],N_size,t)
             print(f'{t}, {folder2}, {unique_bias_mean(all_features_values[folder1][folder2])[0]}, {best_dimension_bias[0]}, {best_dimension_bias[1]}')
 
 # Calcula quais dimensões devem ser removidas em conjunto, para todas as classes
@@ -634,7 +635,7 @@ if module == 'calculate_bias_together':
     complete_all_features_values = torch.cat(complete_all_features_values, axis=0)
 
     for t in theta: 
-        best_dimension_bias = single_bias_mitigation_algorithm(complete_all_features_values,54,t)
+        best_dimension_bias = single_bias_mitigation_algorithm(complete_all_features_values,N_size,t)
         print(f'{t}, Total bias together, {unique_bias_mean(all_features_values[folder1][folder2])[0]}, {best_dimension_bias[0]}, {best_dimension_bias[1]}')
 
 # Calcula o bias comparativos entre duas classes a partir de um conjuntos de dimensões a serem removidas. Como entrada um arquivo txt com as dimensões
@@ -709,10 +710,17 @@ if module == 'bias_calculation':
                         if bias_type == 'separately':
                             A_feature = all_features_values["unpleasant_phrases"].clone()
                             B_feature = all_features_values["pleasant_phrases"].clone()
-                            while A_feature.size()[1] > (embedding_dimension-num_dimensions):
-                                remove_value = random.randint(0,A_feature.size()[1])
-                                A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
-                                B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
+                            # while A_feature.size()[1] > (embedding_dimension-num_dimensions):
+                            #     remove_value = random.randint(0,A_feature.size()[1])
+                            #     print(A_feature.size()[1])
+                            #     A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
+                            #     B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
+                            id_list = random.sample(range(embedding_dimension), embedding_dimension-N_size)
+                            A_feature = A_feature[:,id_list]
+                            B_feature = B_feature[:,id_list]
+
+                            A_feature_history = A_feature.clone()
+                            B_feature_history = B_feature.clone()
                         # Caso as dimensões sejam todos iguais, não se remove de forma aleatória, porém as mesmas dimensões de A e B.
                         elif bias_type == 'together':
                             A_feature = None
@@ -742,13 +750,13 @@ if module == 'bias_calculation':
 
                     if f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}' not in mean_result:
                         mean_result[f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}'] = [e]
-                        all_results.append([X_feature,Y_feature,A_feature,B_feature,e])
+                        all_results.append([X_feature,Y_feature,A_feature_history,B_feature_history,e])
                     else:
                         mean_result[f'{global_concept}/{micro_concept[0]} x {global_concept}/{micro_concept[1]}'].append(e)
-                        all_results.append([X_feature,Y_feature,A_feature,B_feature,e])
+                        all_results.append([X_feature,Y_feature,A_feature_history,B_feature_history,e])
 
         df = pd.DataFrame(all_results, columns=['X_feature', 'Y_feature','A_feature','B_feature','e'])
-        df.to_csv('results_in_csv.csv')
+        df.to_csv(f'results_in_csv_{bias_type}_{repeat}.csv')
         for concept_value in mean_result:
             print(f'{concept_value}: {mean(mean_result[concept_value])}')
         end = time.time()
