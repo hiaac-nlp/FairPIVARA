@@ -327,6 +327,7 @@ def all_features(concepts, dataset_path, vision_processor, model, labels, text_t
             if folder1 not in all_features:
                 all_features[folder1] = {}
             all_features[folder1][folder2] = image_features
+            #TODO: Armazenando somente bias atual em all_images
             all_images.append(image_input)
 
         text_features_un = F.normalize(model.encode_text(batch_texts_tok_un), dim=-1).cpu()
@@ -553,8 +554,9 @@ top_similar = 15
 embedding_dimension=512
 module = 'bias_calculation'
 N_size = 54
-repeat_times = [1]
-bias_type = 'separately' #'random, separately, together'
+repeat_times = [10] # [1, 100, 1000]
+file_read = 'multiple_sets' #'multiple_sets, same_set'
+bias_type = 'random_A_B' #'random, random_A_B, same_as_X'
 # file_with_dimensions = 'results/theta-001to005/results_theta_0-05.txt'
 file_with_dimensions = 'results/theta-001to005/results_theta_same_values.txt'
 # file_with_dimensions = 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
@@ -564,7 +566,6 @@ device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
 print(f'file_with_dimensions: {file_with_dimensions}')
 
-# with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
 with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
     text_dataset = json.load(f)
 
@@ -641,14 +642,14 @@ if module == 'calculate_bias_together':
 # Calcula o bias comparativos entre duas classes a partir de um conjuntos de dimensões a serem removidas. Como entrada um arquivo txt com as dimensões
 if module == 'bias_calculation':
     with open(file_with_dimensions) as f:
-        if bias_type == 'separately' or bias_type == 'random':
+        if file_read == 'multiple_sets':
             lines = f.readlines()
             concepts = {}
             for line in lines:
                 partition = line.split('[')
                 value = partition[0].split(',')
                 concepts[value[1].strip()] = partition[1].strip()[:-1].split(', ')
-        elif bias_type == 'together':
+        elif file_read == 'same_set':
             concepts = {}
             line = f.readline()
             partition = line.split('[')
@@ -707,7 +708,7 @@ if module == 'bias_calculation':
                                 else:
                                     Y_feature = torch.cat([Y_feature, all_features_values[global_concept][micro_concept[1]][:,i][:,None]], dim=1)
                         # Caso as dimensões sejam independentes por conceito, as dimensões demovidas de A e B são aleatórias, para uma comparação justa.
-                        if bias_type == 'separately':
+                        if bias_type == 'random_A_B':
                             A_feature = all_features_values["unpleasant_phrases"].clone()
                             B_feature = all_features_values["pleasant_phrases"].clone()
                             # while A_feature.size()[1] > (embedding_dimension-num_dimensions):
@@ -722,7 +723,7 @@ if module == 'bias_calculation':
                             A_feature_history = A_feature.clone()
                             B_feature_history = B_feature.clone()
                         # Caso as dimensões sejam todos iguais, não se remove de forma aleatória, porém as mesmas dimensões de A e B.
-                        elif bias_type == 'together':
+                        elif bias_type == 'same_as_X':
                             A_feature = None
                             for i, dim in enumerate(range(all_features_values["unpleasant_phrases"].size()[1])):
                                 if str(i) not in concepts[micro_concept[0]][:num_dimensions]:
@@ -737,6 +738,8 @@ if module == 'bias_calculation':
                                         B_feature = all_features_values["pleasant_phrases"][:,i][:,None]
                                     else:
                                         B_feature = torch.cat([B_feature, all_features_values["pleasant_phrases"][:,i][:,None]], dim=1)
+                            A_feature_history = A_feature.clone()
+                            B_feature_history = B_feature.clone()
                         else:
                             print('bias type not implemented')
                             sys.exit("You chose to quit the program.")
@@ -758,6 +761,8 @@ if module == 'bias_calculation':
         df = pd.DataFrame(all_results, columns=['X_feature', 'Y_feature','A_feature','B_feature','e'])
         df.to_csv(f'results_in_csv_{bias_type}_{repeat}.csv')
         for concept_value in mean_result:
+            print(concept_value)
+            print(mean_result[concept_value])
             print(f'{concept_value}: {mean(mean_result[concept_value])}')
         end = time.time()
         print(f'__________________________ Time: {end - start} __ Repeated: {repeat} __ File: {file_with_dimensions} __________________________')

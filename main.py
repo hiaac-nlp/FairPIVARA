@@ -14,6 +14,7 @@ import pandas as pd
 import open_clip
 import itertools
 import numpy as np
+import random
 
 #sys.path.append("/work/diego.moreira/CLIP-PtBr/clip_pt/src/")
 
@@ -34,16 +35,19 @@ def parse_args():
     parser.add_argument("--adapter", default=None, required=False, help="Load the adapter weights")
     parser.add_argument("--concepts", type=str, required=False)
     parser.add_argument("--number-concepts", default=None ,type=int, required=False, help="Number of atributes returned by CLIP for target group")
-    parser.add_argument("--top-similar", default=None ,type=int, required=False, help="Top atributes returned by CLIP for target group")
+    parser.add_argument("--extract-top-similar", required=False, help="Top atributes returned by CLIP for target group")
+    parser.add_argument("--view-top-similar", required=False, help="Top atributes returned by CLIP for target group")
     parser.add_argument("--task", type=str, choices=["classification","comparison"], help="Task to be done" )
     parser.add_argument("--weighted-list", default=None)
-    parser.add_argument("--print", default="json", choices=["json", "exel", "file"])
+    parser.add_argument("--print", default="json", choices=["json", "exel", "file", "pandas"])
     parser.add_argument("--score-or-quant", default="score", choices=["quant", "score", "both","both_operation"])
     parser.add_argument("--add-signal", default=None, choices=["True", "False"])
     parser.add_argument("--sorted-df-similarities", default=None, choices=["True", "False"])
     parser.add_argument("--sort-order", default=None, choices=["signal", "module"])
     parser.add_argument("--remove-dimensions-list", type=str, default=None, required=False,
                         help="File with list of dimensions to remove")
+    parser.add_argument("--repetitions", type=int, default=1, required=False, help="Number of repetitions")
+    parser.add_argument("--bias-type", default="same_as_X", choices=['random_A_B', 'same_as_X','random'])
 
     return parser.parse_args()
 
@@ -89,7 +93,7 @@ def image_to_text_retrieval(image_features, text_features, all_images, all_texts
             df_list.append(similarities_df)
     return df_list, images_selected
 
-def classification(model, image_dataloader, labels, tokenizer, device, language, sorted_df_similarities, remove_dimensions):
+def classification(model, image_dataloader, labels, tokenizer, device, language, sorted_df_similarities, remove_dimensions,bias_type):
     if language == 'en':
         template = "[CLASS] person"
     elif language == 'pt-br':
@@ -118,21 +122,30 @@ def classification(model, image_dataloader, labels, tokenizer, device, language,
         all_images.append(image_input)
 
     if remove_dimensions != None:
-        # remove a list of dimensions if required from the image and text embeddings
-        i_features = None
-        for i, dim in enumerate(range(image_features.size()[1])):
-            if str(i) not in remove_dimensions:
-                if i_features == None:
-                    i_features = image_features[:,i][:,None]
-                else:
-                    i_features = torch.cat([i_features, image_features[:,i][:,None]], dim=1)
-        t_features = None
-        for i, dim in enumerate(range(text_features.size()[1])):
-            if str(i) not in remove_dimensions:
-                if t_features == None:
-                    t_features = text_features[:,i][:,None]
-                else:
-                    t_features = torch.cat([t_features, text_features[:,i][:,None]], dim=1)
+        if bias_type == 'random':
+            id_list = random.sample(range(text_features.size()[1]), text_features.size()[1]-len(remove_dimensions))
+            i_features = image_features[:,id_list]
+            t_features = text_features[:,id_list]
+        else:
+            # remove a list of dimensions if required from the image and text embeddings
+            i_features = None
+            for i, dim in enumerate(range(image_features.size()[1])):
+                if str(i) not in remove_dimensions:
+                    if i_features == None:
+                        i_features = image_features[:,i][:,None]
+                    else:
+                        i_features = torch.cat([i_features, image_features[:,i][:,None]], dim=1)
+            if bias_type == 'same_as_X':
+                t_features = None
+                for i, dim in enumerate(range(text_features.size()[1])):
+                    if str(i) not in remove_dimensions:
+                        if t_features == None:
+                            t_features = text_features[:,i][:,None]
+                        else:
+                            t_features = torch.cat([t_features, text_features[:,i][:,None]], dim=1)
+            elif bias_type == 'random_A_B':
+                id_list = random.sample(range(text_features.size()[1]), text_features.size()[1]-len(remove_dimensions))
+                t_features = text_features[:,id_list]
         df_list, images_selected = image_to_text_retrieval(i_features, t_features, all_images, batch_texts, sorted_df_similarities)
     else:
         df_list, images_selected = image_to_text_retrieval(image_features, text_features, all_images, batch_texts, sorted_df_similarities)
@@ -143,75 +156,116 @@ def Convert(tup, di):
     return di
 
 def show_results(all_bias, print_type, score_or_quant, language,top_similar,add_signal):
-    # print to Json
-        if print_type == 'json':
-            print(all_bias)
-        # print to the exel
-        elif print_type == 'exel':
-            for i in all_bias:
-                for j in all_bias[i]:
-                    my_list_keys_to_print = list(all_bias[i][j].keys())
-                    my_list_values_to_print = list(all_bias[i][j].values())
 
-                    if score_or_quant == 'quant':
-                        item_v_list = []
-                        for item_v in my_list_values_to_print:
-                            item_v_list.append(item_v[0]) 
-                    elif score_or_quant == 'score':
-                        item_v_list = []
-                        for item_v in my_list_values_to_print:
-                            item_v_list.append(item_v[1])  
-                    else:
-                        item_v_list = []
-                        for item_v in my_list_values_to_print:
-                            item_v_list.append((item_v[0], item_v[1]))
-                    
-                    #if top similar not defined, get all values and keys
-                    if top_similar == None:
-                        top_similar = len(item_v_list)
+    # #TODO: VERIFICAR OS RESULTADOS COM MULTIPLOS VALORES NA LISTA E A QUANTIDADE DE REPETICOES
+    # # print to Json
+    # for bias in all_bias:
+    if print_type == 'json':
+        print(all_bias)
+    # print to the exel
+    elif print_type == 'exel':
+        for i in all_bias:
+            for j in all_bias[i]:
+                my_list_keys_to_print = list(all_bias[i][j].keys())
+                my_list_values_to_print = list(all_bias[i][j].values())
 
+                if score_or_quant == 'quant':
+                    item_v_list = []
+                    for item_v in my_list_values_to_print:
+                        item_v_list.append(item_v[0]) 
+                elif score_or_quant == 'score':
+                    item_v_list = []
+                    for item_v in my_list_values_to_print:
+                        item_v_list.append(item_v[1])  
+                else:
+                    item_v_list = []
+                    for item_v in my_list_values_to_print:
+                        item_v_list.append((item_v[0], item_v[1]))
+                
+                #if top similar not defined, get all values and keys
+                if top_similar == None:
+                    vk = sorted(zip(item_v_list,my_list_keys_to_print))
+                else:
                     vk = sorted(zip(item_v_list,my_list_keys_to_print))[(len(item_v_list)-top_similar):]
-                    
-                    if add_signal == 'True':
-                        # add signal
-                        vk = add_list_signal_in_ziplist(vk,language)
-                    
-                    if score_or_quant!='both':
-                        vk = sorted(vk)
-                    
-                    for _,k in vk:
-                        print(k, end=',')
+
+                if add_signal == 'True':
+                    # add signal
+                    vk = add_list_signal_in_ziplist(vk,language)
+                
+                if score_or_quant=='both':
+                    vk = sorted(vk,key=lambda x: x[0][1])
+                
+                for _,k in vk:
+                    print(k, end=',')
+                print('')
+                if score_or_quant == 'both':
+                    for v,_ in vk:
+                        print(v[0], end=',')
                     print('')
-                    if score_or_quant == 'both':
-                        for v,_ in vk:
-                            print(v[0], end=',')
-                        print('')
-                        for v,_ in vk:
-                            print(v[1], end=',')
-                        print('')
-                    elif score_or_quant == 'both_operation':
-                        for v,_ in vk:
-                            if v[0] < 0:
-                                print(v[1]/-v[0], end=',')
-                            else:
-                                print(v[1]/v[0], end=',')
-                        print('')
-                    else:
-                        for v,_ in vk:
-                            print(v, end=',')
-                        print('')
+                    for v,_ in vk:
+                        print(v[1], end=',')
+                    print('')
+                elif score_or_quant == 'both_operation':
+                    for v,_ in vk:
+                        if v[0] < 0:
+                            print(v[1]/-v[0], end=',')
+                        else:
+                            print(v[1]/v[0], end=',')
+                    print('')
+                else:
+                    for v,_ in vk:
+                        print(v, end=',')
+                    print('')
 
-            for i in all_bias:
-                print(i)
-                for j in all_bias[i]:
-                    print(f'-- {j}')
-        # print to the file
-        elif print_type == 'file':
-            with open(f"{language}_bias_text_classification.json", "w") as outfile: 
-                json.dump(all_bias, outfile)
-        elif print_type == 'pandas': 
-            print(all_bias)
+        for i in all_bias:
+            print(i)
+            for j in all_bias[i]:
+                print(f'-- {j}')
+    # print to the file
+    elif print_type == 'file':
+        with open(f"{language}_all_bias_text_classification.json", "w") as outfile: 
+            json.dump(all_bias, outfile)
+    elif print_type == 'pandas': 
+        data_list = []
+        for i in all_bias:
+            for j in all_bias[i]:
+                my_list_keys_to_print = list(all_bias[i][j].keys())
+                my_list_values_to_print = list(all_bias[i][j].values())
 
+                if score_or_quant == 'quant':
+                    item_v_list = []
+                    for item_v in my_list_values_to_print:
+                        item_v_list.append(item_v[0]) 
+                elif score_or_quant == 'score':
+                    item_v_list = []
+                    for item_v in my_list_values_to_print:
+                        item_v_list.append(item_v[1])  
+                else:
+                    item_v_list = []
+                    for item_v in my_list_values_to_print:
+                        item_v_list.append((item_v[0], item_v[1]))
+                
+                #if top similar not defined, get all values and keys
+                if top_similar == None:
+                    vk = sorted(zip(item_v_list,my_list_keys_to_print))
+                else:
+                    vk = sorted(zip(item_v_list,my_list_keys_to_print))[(len(item_v_list)-top_similar):]
+
+                if add_signal == 'True':
+                    # add signal
+                    vk = add_list_signal_in_ziplist(vk,language)
+                
+                if score_or_quant=='both':
+                    vk = sorted(vk,key=lambda x: x[0][1])
+
+                for v,k in vk:
+                    data_list.append([i,j,k,v[0],v[1]])
+        df = pd.DataFrame(data_list, columns = ['Global Concept', 'Micro Concept', 'Concept', 'Quant', 'Score'])
+        user = os.environ.get('USER', os.environ.get('USERNAME'))
+        if args.remove_dimensions_list!='':
+            removed_dimensions = args.remove_dimensions_list.split('/')[-1]
+        df.to_csv(f'/home/{user}/FairPIVARA/results/violin/Enviroment:task-{args.task},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{removed_dimensions},repetitions-{args.repetitions},bias_type-{args.bias_type}', index=False)
+        print(df)
 
 def add_list_signal(temp_list, language):
     #check the score signal
@@ -243,68 +297,91 @@ def add_list_signal_in_ziplist(ziplist, language):
                 ziplist[i] = (ziplist[i][0], ziplist[i][1])
     return ziplist
 
-def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar,remove_dimensions_list):
-    # Create the file sistem
-    concepts = concepts.replace('|', ' ')
-    # List thought all the concepts
-    bias_list = [item for item in concepts.split(',')]
-    all_bias = {}
-    # Calc the bias for each concept
-    for bias in bias_list:
-        parcial_bias = {}
-        weight_parcial_bias = {}
-        folder1= bias.split('/')[0]
-        folder2= bias.split('/')[1]
-        # Load the imagens for the bias select in the loop
-        custom_dataset = MMBiasDataset(f'{dataset_path}/Images/{bias}', image_preprocessor=vision_processor)
-        dataloader = DataLoader(custom_dataset, batch_size=len(custom_dataset), shuffle=False) 
-
-        if remove_dimensions_list != None:
-            remove_dimensions = remove_dimensions_list[folder2]
-        else:
-            remove_dimensions = None
-        
-        # DO the classification
-        df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities, remove_dimensions=remove_dimensions)
-        list_of_concepts = []
-
-        # Add the firt "number of concepts" (default = 15) in the dict
-        for df in df_list:
-            for nc in range(top_similar):
-                list_of_concepts.append((df.iloc[nc].text,df.iloc[nc].score))
-
-        # Calc the concepts with sum of total itens
-        for item in list_of_concepts:
-            if item[0] not in parcial_bias:
-                parcial_bias[item[0]] = (0,0)
-            parcial_bias[item[0]] = (parcial_bias[item[0]][0] + 1, parcial_bias[item[0]][1] + item[1].item())
-        
-        # Calc the concepts with mean score
-        if weighted_list == 'True':
-            for item in parcial_bias:
-                weight_parcial_bias[item] = (parcial_bias[item][0], parcial_bias[item][1]/parcial_bias[item][0])
-            list_weight_parcial_bias = sorted(weight_parcial_bias.items(), key=lambda x: x[1][1], reverse=True)
+def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar,remove_dimensions_list,repetitions,bias_type):
+    repetition_all_bias = {}
+    for repeted in range(repetitions):
+        if repeted % 100:
+            print(repeted)
+        # Create the file sistem
+        concepts = concepts.replace('|', ' ')
+        # List thought all the concepts
+        bias_list = [item for item in concepts.split(',')]
+        all_bias = {}
+        # Calc the bias for each concept
+        for bias in bias_list:
+            parcial_bias = {}
             weight_parcial_bias = {}
-            weight_parcial_bias = Convert(list_weight_parcial_bias, weight_parcial_bias)
+            folder1= bias.split('/')[0]
+            folder2= bias.split('/')[1]
+            # Load the imagens for the bias select in the loop
+            custom_dataset = MMBiasDataset(f'{dataset_path}/Images/{bias}', image_preprocessor=vision_processor)
+            dataloader = DataLoader(custom_dataset, batch_size=len(custom_dataset), shuffle=False) 
 
-        if weighted_list == 'False':
-            temp_list = parcial_bias
-        else:
-            temp_list = weight_parcial_bias
+            if remove_dimensions_list != None:
+                remove_dimensions = remove_dimensions_list[folder2]
+            else:
+                remove_dimensions = None
+            
+            # DO the classification
+            df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities, remove_dimensions=remove_dimensions,bias_type=bias_type)
+            list_of_concepts = []
 
-        # if add_signal == 'True':
-        #     temp_list = add_list_signal(temp_list, language=language)
-        
-        if folder1 not in all_bias:
-            all_bias[folder1] = {}
-        
-        # Select the order, by itens quant or score
-        # only the first "number_concepts" , if number = None all will be collected
-        if weighted_list == 'True':
-            all_bias[folder1][folder2] = dict(itertools.islice(weight_parcial_bias.items(), number_concepts))
+            # Add the firt "number of concepts" (default = 15) in the dict
+            for df in df_list:
+                if top_similar == None:
+                    for nc in range(len(df)):
+                        list_of_concepts.append((df.iloc[nc].text,df.iloc[nc].score))
+                else:
+                    for nc in range(top_similar):
+                        list_of_concepts.append((df.iloc[nc].text,df.iloc[nc].score))
+
+            # Calc the concepts with sum of total itens
+            for item in list_of_concepts:
+                if item[0] not in parcial_bias:
+                    parcial_bias[item[0]] = (0,0)
+                parcial_bias[item[0]] = (parcial_bias[item[0]][0] + 1, parcial_bias[item[0]][1] + item[1].item())
+            
+            # Calc the concepts with mean score
+            if weighted_list == 'True':
+                for item in parcial_bias:
+                    weight_parcial_bias[item] = (parcial_bias[item][0], parcial_bias[item][1]/parcial_bias[item][0])
+                list_weight_parcial_bias = sorted(weight_parcial_bias.items(), key=lambda x: x[1][1], reverse=True)
+                weight_parcial_bias = {}
+                weight_parcial_bias = Convert(list_weight_parcial_bias, weight_parcial_bias)
+
+            if weighted_list == 'False':
+                temp_list = parcial_bias
+            else:
+                temp_list = weight_parcial_bias
+
+            # if add_signal == 'True':
+            #     temp_list = add_list_signal(temp_list, language=language)
+            
+            if folder1 not in all_bias:
+                all_bias[folder1] = {}
+            
+            # Select the order, by itens quant or score
+            # only the first "number_concepts" , if number = None all will be collected
+            if weighted_list == 'True':
+                all_bias[folder1][folder2] = dict(itertools.islice(weight_parcial_bias.items(), number_concepts))
+            else:
+                all_bias[folder1][folder2] = dict(itertools.islice(parcial_bias.items(), number_concepts))
+
+        if repetition_all_bias == {}:
+            for global_concept in all_bias:
+                if global_concept not in repetition_all_bias:
+                    repetition_all_bias[global_concept] = {}
+                for micro_concept in all_bias[global_concept]:
+                    repetition_all_bias[global_concept][micro_concept] = all_bias[global_concept][micro_concept]
         else:
-            all_bias[folder1][folder2] = dict(itertools.islice(parcial_bias.items(), number_concepts))
-    return all_bias
+            for global_concept in all_bias:
+                for micro_concept in all_bias[global_concept]:
+                    for item in all_bias[global_concept][micro_concept]:
+                        if item not in repetition_all_bias[global_concept][micro_concept]:
+                            repetition_all_bias[global_concept][micro_concept][item] = all_bias[global_concept][micro_concept][item]
+                        else:
+                            repetition_all_bias[global_concept][micro_concept][item] = (repetition_all_bias[global_concept][micro_concept][item][0]+all_bias[global_concept][micro_concept][item][0], repetition_all_bias[global_concept][micro_concept][item][1]+all_bias[global_concept][micro_concept][item][1])
+    return repetition_all_bias
 
 def old_caliskan_test(all_bias):
     for global_concept in all_bias:
@@ -440,8 +517,18 @@ if __name__ == "__main__":
             sorted_df_similarities = 'True'
         else:
             sorted_df_similarities = args.sorted_df_similarities
+        if args.extract_top_similar == '':
+            extract_top_similar = None
+        else:
+            extract_top_similar = int(args.extract_top_similar)
+        if args.view_top_similar == '':
+            view_top_similar = None
+        else:
+            view_top_similar = int(args.view_top_similar)
         
-        if args.remove_dimensions_list != None:
+        if args.remove_dimensions_list == '':
+            remove_dimensions_list = None
+        else:
             with open(args.remove_dimensions_list) as f:
                 lines = f.readlines()   
                 remove_dimensions_list = {}
@@ -449,11 +536,12 @@ if __name__ == "__main__":
                     partition = line.split('[')
                     value = partition[0].split(',')
                     remove_dimensions_list[value[1].strip()] = partition[1].strip()[:-1].split(', ')
-        else:
-            remove_dimensions_list = None
+            
 
-        all_bias = extract_bias(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, number_concepts, weighted_list, add_signal, sorted_df_similarities,args.top_similar, remove_dimensions_list)
-        show_results(all_bias, args.print, args.score_or_quant, args.language,args.top_similar,add_signal)
+        print(f'Enviroment:task-{args.task},gpu-{args.gpu},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{args.remove_dimensions_list},repetitions-{args.repetitions},bias_type-{args.bias_type}')
+
+        all_bias = extract_bias(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, number_concepts, weighted_list, add_signal, sorted_df_similarities,extract_top_similar, remove_dimensions_list, args.repetitions, args.bias_type)
+        show_results(all_bias, args.print, args.score_or_quant, args.language,view_top_similar,add_signal)
 
     elif args.task == 'comparison':
         if args.add_signal == None:
