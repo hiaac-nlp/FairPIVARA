@@ -264,7 +264,9 @@ def show_results(all_bias, print_type, score_or_quant, language,top_similar,add_
         user = os.environ.get('USER', os.environ.get('USERNAME'))
         if args.remove_dimensions_list!='':
             removed_dimensions = args.remove_dimensions_list.split('/')[-1]
-        df.to_csv(f'/home/{user}/FairPIVARA/results/violin/Enviroment:task-{args.task},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{removed_dimensions},repetitions-{args.repetitions},bias_type-{args.bias_type}', index=False)
+        else: 
+            removed_dimensions = ''
+        df.to_csv(f'/home/{user}/FairPIVARA/results/violin/Enviroment:language-{language},task-{args.task},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{removed_dimensions},repetitions-{args.repetitions},bias_type-{args.bias_type}', index=False)
         print(df)
 
 def add_list_signal(temp_list, language):
@@ -418,7 +420,7 @@ def phi_calc(df,number_concepts):
 
     return image_bias_a - image_bias_b
 
-def caliskan_test(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, sorted_df_similarities,number_concepts):
+def caliskan_test(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, sorted_df_similarities,number_concepts, remove_dimensions,bias_type):
     # Create the file sistem
     concepts = concepts.replace('|', ' ')
     # List thought all the concepts
@@ -435,7 +437,7 @@ def caliskan_test(concepts, dataset_path, vision_processor, model, labels, text_
         custom_dataset = MMBiasDataset(f'{dataset_path}/Images/{bias}', image_preprocessor=vision_processor)
         dataloader = DataLoader(custom_dataset, batch_size=len(custom_dataset), shuffle=False) 
         # DO the classification
-        df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities)
+        df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities, remove_dimensions=remove_dimensions,bias_type=bias_type)
         # print(f'---{folder1}--- ---{folder2}---')
         images_phi = 0
         std_list = []
@@ -552,8 +554,18 @@ if __name__ == "__main__":
             number_concepts = len(labels['unpleasant_phrases']) + len(labels['pleasant_phrases'])
         if args.sorted_df_similarities == None:
             sorted_df_similarities = 'False'
+        if args.remove_dimensions_list == '':
+            remove_dimensions_list = None
+        else:
+            with open(args.remove_dimensions_list) as f:
+                lines = f.readlines()   
+                remove_dimensions_list = {}
+                for line in lines:
+                    partition = line.split('[')
+                    value = partition[0].split(',')
+                    remove_dimensions_list[value[1].strip()] = partition[1].strip()[:-1].split(', ')
 
-        caliskan_test(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, sorted_df_similarities,number_concepts)
+        caliskan_test(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, sorted_df_similarities,number_concepts,remove_dimensions_list,args.bias_type)
         
         # all_bias = extract_bias(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, number_concepts, weighted_list, add_signal, sorted_df_similarities)
         # old_caliskan_test(all_bias)

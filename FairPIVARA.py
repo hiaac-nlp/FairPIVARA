@@ -543,8 +543,8 @@ GPU = 2 # 0->4, 1->6, 2->7, 3->0, 4->1, 6 -> 3
 MAIN_PATH = '/hadatasets/MMBias'
 DATASET_PATH = '/hadatasets/MMBias/data'
 LANGUAGE_PATH = 'data'
-LANGUAGE = 'en'
-ft_open_clip = 'False'
+LANGUAGE = 'en' # 'en', 'pt-br'
+ft_open_clip = 'True'
 adapter = 'False'
 CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT'
 weighted_list='False'
@@ -552,19 +552,18 @@ add_signal = 'True'
 sorted_df_similarities = 'True'
 top_similar = 15
 embedding_dimension=512
-module = 'bias_calculation'
+module = 'calculate_bias_separately' #'calculate_bias_separately','bias_calculation'
+theta = [9999999] #[0.01, 0.02, 0.03, 0.04, 0.05]
 N_size = 54
-repeat_times = [10] # [1, 100, 1000]
+# Used only on bias_calculation
+repeat_times = [1] # [1, 100, 1000]
 file_read = 'multiple_sets' #'multiple_sets, same_set'
 bias_type = 'random_A_B' #'random, random_A_B, same_as_X'
-# file_with_dimensions = 'results/theta-001to005/results_theta_0-05.txt'
-file_with_dimensions = 'results/theta-001to005/results_theta_same_values.txt'
-# file_with_dimensions = 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
+file_with_dimensions = 'results/pt-theta-001to005/pt-results_theta_same_values.txt' #'results/theta-001to005/results_theta_0-05.txt', 'results/theta-001to005/results_theta_same_values.txt', 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
 
 # device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
-print(f'file_with_dimensions: {file_with_dimensions}')
 
 with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
     text_dataset = json.load(f)
@@ -577,13 +576,15 @@ del text_dataset['unpleasant_phrases'], text_dataset['pleasant_phrases']
 number_concepts = len(labels['unpleasant_phrases']) + len(labels['pleasant_phrases'])
 
 if ft_open_clip == 'True':
-    if adapter is None:
+    if adapter == 'False':
+        print('Using the CAPIVARA Model')
         model, preprocess_train, preprocess_val = open_clip.create_model_and_transforms('hf-hub:hiaac-nlp/CAPIVARA')
         tokenizer = open_clip.get_tokenizer('hf-hub:hiaac-nlp/CAPIVARA')
     else:
         model = OpenCLIPAdapter(inference=True, devices=device)
         model.load_adapters(pretrained_adapter=args.adapter)
 else:
+    print('Using the OpenCLIP Model')
     model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
     tokenizer = open_clip.get_tokenizer('ViT-B-32')
 
@@ -608,7 +609,6 @@ for global_concept in all_features_values:
         pass
 # Calcula quais dimensões devem ser removidas de forma separada, por classe
 if module == 'calculate_bias_separately':
-    theta = [0.01, 0.02, 0.03, 0.04, 0.05]
     concepts = CONCEPTS.replace('|', ' ')
     # print(f'Theta, Concept, O-Bias, D-Bias, R-Dimensions')
     for t in theta: 
@@ -622,7 +622,6 @@ if module == 'calculate_bias_separately':
 
 # Calcula quais dimensões devem ser removidas em conjunto, para todas as classes
 if module == 'calculate_bias_together':
-    theta = [0.01, 0.02, 0.03, 0.04, 0.05]
     concepts = CONCEPTS.replace('|', ' ')
 
     # List thought all the concepts
@@ -641,6 +640,7 @@ if module == 'calculate_bias_together':
 
 # Calcula o bias comparativos entre duas classes a partir de um conjuntos de dimensões a serem removidas. Como entrada um arquivo txt com as dimensões
 if module == 'bias_calculation':
+    print(f'file_with_dimensions: {file_with_dimensions}')
     with open(file_with_dimensions) as f:
         if file_read == 'multiple_sets':
             lines = f.readlines()
@@ -691,6 +691,8 @@ if module == 'bias_calculation':
                             Y_feature = torch.cat([Y_feature[:, :remove_value], Y_feature[:, remove_value+1:]], dim=1)
                             A_feature = torch.cat([A_feature[:, :remove_value], A_feature[:, remove_value+1:]], dim=1)
                             B_feature = torch.cat([B_feature[:, :remove_value], B_feature[:, remove_value+1:]], dim=1)
+                        A_feature_history = A_feature.clone()
+                        B_feature_history = B_feature.clone()
                     else:
                         X_feature = None
                         for i, dim in enumerate(range(all_features_values[global_concept][micro_concept[0]].size()[1])):
@@ -759,10 +761,10 @@ if module == 'bias_calculation':
                         all_results.append([X_feature,Y_feature,A_feature_history,B_feature_history,e])
 
         df = pd.DataFrame(all_results, columns=['X_feature', 'Y_feature','A_feature','B_feature','e'])
-        df.to_csv(f'results_in_csv_{bias_type}_{repeat}.csv')
+        df.to_csv(f'/home/diego.moreira/FairPIVARA/results/dimensions_removed/{LANGUAGE}_results_in_csv_{bias_type}_{repeat}.csv')
         for concept_value in mean_result:
-            print(concept_value)
-            print(mean_result[concept_value])
+            # print(concept_value)
+            # print(mean_result[concept_value])
             print(f'{concept_value}: {mean(mean_result[concept_value])}')
         end = time.time()
         print(f'__________________________ Time: {end - start} __ Repeated: {repeat} __ File: {file_with_dimensions} __________________________')

@@ -42,22 +42,21 @@
 ###############################################################
 
 #Classification
-FT_OPEN_CLIP='False'
-GPU=3 # 0->4, 1->6, 2->7, 3->0, 4->1, 6 -> 3
+FT_OPEN_CLIP='True'
+GPU=2 # 0->4, 1->6, 2->7, 3->0, 4->1, 6 -> 3
 DATASET_PATH="/hadatasets/MMBias/data"
 # | for space and , for and
 CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT'
 LANGUAGE='en'
 TASK='classification'
-PRINT='pandas' #'json' , 'exel', 'pandas'
-# SCORE_OR_QUANT='both'
-SCORE_OR_QUANT=both #'both_operation,both'
+PRINT='pandas' #'json' , 'exel', 'pandas'  #pandas used to violin plots
+SCORE_OR_QUANT=both #'both_operation, both'
 WEIGHTED_LIST='False'
 EXTRACT_TOP_SIMILAR='15'  # '', '15'
-VIEW_TOP_SIMILAR=''  # '', '15'
+VIEW_TOP_SIMILAR=''  # '', '15' # For the violin, it is necessary to have the same value as ''
 REMOVE_DIMENSIONS_LIST='results/theta-001to005/results_theta_same_values.txt' # '' , 'results/theta-001to005/results_theta_same_values.txt'
 REPETITIONS=1
-BIAS_TYPE='random' #random_A_B, same_as_X'
+BIAS_TYPE='same_as_X' #random_A_B, same_as_X'  Used with remove-dimensions-list, if remove-dimensions-list is empty, this parameter is ignored
 
 export TRANSFORMERS_CACHE=/home/${USER}/hf_dir
 export HF_HOME=/home/${USER}/hf_dir

@@ -25,10 +25,11 @@ def shared_dimensions_frequency(file_with_dimensions):
     # print(len(count_of_itens))
     for i in count_of_itens[:54]:
         print(i[0], end=',')
+    print('done')
 
 if __name__ == '__main__':
      method = 'shared_dimensions_frequency'
 
      if method == 'shared_dimensions_frequency':
-          file_with_dimensions = 'results/theta-001to005/results_theta_0-05.txt'
+          file_with_dimensions = 'results/pt-theta-001to005/pt-results_theta_0-05.txt'
           shared_dimensions_frequency(file_with_dimensions)
