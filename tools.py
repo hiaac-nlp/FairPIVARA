@@ -31,5 +31,5 @@ if __name__ == '__main__':
      method = 'shared_dimensions_frequency'
 
      if method == 'shared_dimensions_frequency':
-          file_with_dimensions = 'results/pt-theta-001to005/pt-results_theta_0-05.txt'
+          file_with_dimensions = 'results/theta-001to011/results_theta_0-11.txt'
           shared_dimensions_frequency(file_with_dimensions)

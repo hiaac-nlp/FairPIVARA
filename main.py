@@ -47,7 +47,7 @@ def parse_args():
     parser.add_argument("--remove-dimensions-list", type=str, default=None, required=False,
                         help="File with list of dimensions to remove")
     parser.add_argument("--repetitions", type=int, default=1, required=False, help="Number of repetitions")
-    parser.add_argument("--bias-type", default="same_as_X", choices=['random_A_B', 'same_as_X','random'])
+    parser.add_argument("--bias-type", default="same_as_X", choices=['same_as_selected','random_text','random'])
 
     return parser.parse_args()
 
@@ -120,10 +120,14 @@ def classification(model, image_dataloader, labels, tokenizer, device, language,
             image_features = F.normalize(model.encode_image(image_input), dim=-1).cpu()
             text_features = F.normalize(model.encode_text(batch_texts_tok), dim=-1).cpu()
         all_images.append(image_input)
-
-    if remove_dimensions != None:
+    
+    if remove_dimensions == ['']:
+        remove_dimensions_size = 0
+    else:
+        remove_dimensions_size = len(remove_dimensions)
+    if remove_dimensions_size > 0:
         if bias_type == 'random':
-            id_list = random.sample(range(text_features.size()[1]), text_features.size()[1]-len(remove_dimensions))
+            id_list = random.sample(range(text_features.size()[1]), text_features.size()[1]-remove_dimensions_size)
             i_features = image_features[:,id_list]
             t_features = text_features[:,id_list]
         else:
@@ -135,7 +139,7 @@ def classification(model, image_dataloader, labels, tokenizer, device, language,
                         i_features = image_features[:,i][:,None]
                     else:
                         i_features = torch.cat([i_features, image_features[:,i][:,None]], dim=1)
-            if bias_type == 'same_as_X':
+            if bias_type == 'same_as_selected':
                 t_features = None
                 for i, dim in enumerate(range(text_features.size()[1])):
                     if str(i) not in remove_dimensions:
@@ -143,8 +147,8 @@ def classification(model, image_dataloader, labels, tokenizer, device, language,
                             t_features = text_features[:,i][:,None]
                         else:
                             t_features = torch.cat([t_features, text_features[:,i][:,None]], dim=1)
-            elif bias_type == 'random_A_B':
-                id_list = random.sample(range(text_features.size()[1]), text_features.size()[1]-len(remove_dimensions))
+            elif bias_type == 'random_text':
+                id_list = random.sample(range(text_features.size()[1]), text_features.size()[1]-remove_dimensions_size)
                 t_features = text_features[:,id_list]
         df_list, images_selected = image_to_text_retrieval(i_features, t_features, all_images, batch_texts, sorted_df_similarities)
     else:
@@ -385,7 +389,7 @@ def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_t
                             repetition_all_bias[global_concept][micro_concept][item] = (repetition_all_bias[global_concept][micro_concept][item][0]+all_bias[global_concept][micro_concept][item][0], repetition_all_bias[global_concept][micro_concept][item][1]+all_bias[global_concept][micro_concept][item][1])
     return repetition_all_bias
 
-def old_caliskan_test(all_bias):
+def old_caliskan_test (all_bias):
     for global_concept in all_bias:
         print(f'----------------- {global_concept} -----------------')
         micro_concept = list(all_bias[global_concept].keys())
@@ -437,7 +441,7 @@ def caliskan_test(concepts, dataset_path, vision_processor, model, labels, text_
         custom_dataset = MMBiasDataset(f'{dataset_path}/Images/{bias}', image_preprocessor=vision_processor)
         dataloader = DataLoader(custom_dataset, batch_size=len(custom_dataset), shuffle=False) 
         # DO the classification
-        df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities, remove_dimensions=remove_dimensions,bias_type=bias_type)
+        df_list, images_selected = classification(model=model, image_dataloader=dataloader, labels=labels, tokenizer=text_tokenizer, device=device, language=language, sorted_df_similarities=sorted_df_similarities, remove_dimensions=remove_dimensions[folder2],bias_type=bias_type)
         # print(f'---{folder1}--- ---{folder2}---')
         images_phi = 0
         std_list = []
@@ -462,7 +466,7 @@ def caliskan_test(concepts, dataset_path, vision_processor, model, labels, text_
         for combination in combination_list[conj_combinations]:
             # print(f'----------------- {combination[0]} vs {combination[1]} -----------------')
             bias_std = np.std(std_all[conj_combinations][combination[0]]+std_all[conj_combinations][combination[1]])
-            print(f'{combination[0]}, {combination[1]}, {(mean_all_bias[conj_combinations][combination[0]]-mean_all_bias[conj_combinations][combination[1]])/bias_std}')
+            print(f'{combination[0]}, {combination[1]}: {(mean_all_bias[conj_combinations][combination[0]]-mean_all_bias[conj_combinations][combination[1]])/bias_std}')
 
         
 
@@ -546,6 +550,7 @@ if __name__ == "__main__":
         show_results(all_bias, args.print, args.score_or_quant, args.language,view_top_similar,add_signal)
 
     elif args.task == 'comparison':
+        print(args.remove_dimensions_list)
         if args.add_signal == None:
             add_signal = 'False'
         if args.weighted_list == None:
@@ -557,6 +562,7 @@ if __name__ == "__main__":
         if args.remove_dimensions_list == '':
             remove_dimensions_list = None
         else:
+            print(f'------------{args.remove_dimensions_list}------------')
             with open(args.remove_dimensions_list) as f:
                 lines = f.readlines()   
                 remove_dimensions_list = {}
