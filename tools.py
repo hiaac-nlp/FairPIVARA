@@ -1,7 +1,7 @@
 from itertools import chain
 from collections import Counter
 
-def shared_dimensions_frequency(file_with_dimensions):
+def shared_dimensions_frequency(file_with_dimensions,num_dimensions_removed):
     with open(file_with_dimensions) as f:
             lines = f.readlines()
             concepts = {}
@@ -21,15 +21,16 @@ def shared_dimensions_frequency(file_with_dimensions):
         count_of_itens.append((k, v)) 
 
     count_of_itens.sort(key=lambda a: a[1], reverse=True)
-    # print(count_of_itens[:54])
+    # print(count_of_itens[:num_dimensions_removed])
     # print(len(count_of_itens))
-    for i in count_of_itens[:54]:
-        print(i[0], end=',')
+    for i in count_of_itens[:num_dimensions_removed]:
+        print(f' {i[0]}', end=',')
     print('done')
 
 if __name__ == '__main__':
      method = 'shared_dimensions_frequency'
+     num_dimensions_removed = 135
 
      if method == 'shared_dimensions_frequency':
-          file_with_dimensions = 'results/theta-001to011/results_theta_0-11.txt'
-          shared_dimensions_frequency(file_with_dimensions)
+          file_with_dimensions = 'results/new_words/theta-001to005/135_dims/pt_results_theta_0-05.txt'
+          shared_dimensions_frequency(file_with_dimensions,num_dimensions_removed)

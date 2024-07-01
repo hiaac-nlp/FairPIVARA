@@ -548,9 +548,10 @@ def single_bias_mitigation_algorithm(X, n, theta,function_to_optimize):
                 best_dimension_bias = (psi,removed_dimensions)
     return best_dimension_bias
 
-GPU = 7 # 0->4, 1->6, 2->7, 3->0, 4->1, 6 -> 3, 7 -> 5
+GPU = 2 # 0->4, 1->6, 2->7, 3->0, 4->1, 6 -> 3, 7 -> 5
 MAIN_PATH = '/hadatasets/MMBias'
 DATASET_PATH = '/hadatasets/MMBias/data'
+rude_level = 1
 LANGUAGE_PATH = 'data'
 LANGUAGE = 'en' # 'en', 'pt-br'
 ft_open_clip = 'False'
@@ -563,20 +564,29 @@ top_similar = 15
 embedding_dimension=512
 module = 'calculate_bias_separately' #'calculate_bias_separately','bias_calculation'
 theta = [0.05] #[0.01, 0.02, 0.03, 0.04, 0.05]
-N_size = [54] # [27, 54, 81, 108, 135, 162, 189, 216, 243, 270, 297, 324, 351, 378, 405, 432, 459, 486, 512]
-function_to_optimize = 'maximize' # minimize, maximize
+N_size = [135] # [27, 54, 81, 108, 135, 162, 189, 216, 243, 270, 297, 324, 351, 378, 405, 432, 459, 486, 512]
+function_to_optimize = 'minimize' # minimize, maximize
 # Used only on bias_calculation
-repeat_times = [1000] # [1, 100, 1000]
+repeat_times = [1] # [1, 100, 1000]
 file_read = 'multiple_sets' #'multiple_sets, same_set'
-bias_type = 'random_A_B' #'random, random_A_B, same_as_X'
-file_with_dimensions = ['results/theta-001to011/same_values/results_theta_0-03_same_values.txt'] #'results/theta-001to005/results_theta_0-05.txt', 'results/theta-001to005/results_theta_same_values.txt', 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
+bias_type = 'same_as_X' #'random, random_A_B, same_as_X'
+file_with_dimensions = ['results/new_words/theta-001to005/results_theta_0-05.txt'] #'results/theta-001to005/results_theta_0-05.txt', 'results/theta-001to005/results_theta_same_values.txt', 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
 
 # device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
 print("Device: ", device)
+if function_to_optimize == 'maximize':
+    print('!!!!!!!!!!!Attention, you are maximizing the function!!!!!!!!!!!')
 
-with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
-    text_dataset = json.load(f)
+if rude_level == 1:
+    with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
+        text_dataset = json.load(f)
+elif rude_level == 0:
+    with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases_rude_0.txt') as f:
+        text_dataset = json.load(f)
+else:
+    print('Invalid rude level')
+    sys.exit()
 
 labels = {}
 labels['unpleasant_phrases'] = text_dataset['unpleasant_phrases']

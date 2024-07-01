@@ -26,6 +26,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--model-path", help="Path to model checkpoint", )
     parser.add_argument("--dataset-path", help="Path to validation/test dataset")
+    parser.add_argument("--rude-level",  type=int, default=1, required=False, help="Words set used, original o less rude.")
     parser.add_argument("--translation", choices=["english", "marian", "google"], required=False)
     parser.add_argument("--language", default="en", choices=["en", "pt-br", "xh", "hi"], required=False)
     parser.add_argument("--batch", type=int, help="Batch size", )
@@ -37,6 +38,7 @@ def parse_args():
     parser.add_argument("--number-concepts", default=None ,type=int, required=False, help="Number of atributes returned by CLIP for target group")
     parser.add_argument("--extract-top-similar", required=False, help="Top atributes returned by CLIP for target group")
     parser.add_argument("--view-top-similar", required=False, help="Top atributes returned by CLIP for target group")
+    parser.add_argument("--top-type", default="equal", choices=['top','equal'], help="top: Show the 15 biggest values or equal: the top simila positives and negatives")
     parser.add_argument("--task", type=str, choices=["classification","comparison"], help="Task to be done" )
     parser.add_argument("--weighted-list", default=None)
     parser.add_argument("--print", default="json", choices=["json", "exel", "file", "pandas"])
@@ -47,7 +49,7 @@ def parse_args():
     parser.add_argument("--remove-dimensions-list", type=str, default=None, required=False,
                         help="File with list of dimensions to remove")
     parser.add_argument("--repetitions", type=int, default=1, required=False, help="Number of repetitions")
-    parser.add_argument("--bias-type", default="same_as_X", choices=['same_as_selected','random_text','random'])
+    parser.add_argument("--bias-type", default="same_as_selected", choices=['same_as_selected','random_text','random'])
 
     return parser.parse_args()
 
@@ -121,7 +123,7 @@ def classification(model, image_dataloader, labels, tokenizer, device, language,
             text_features = F.normalize(model.encode_text(batch_texts_tok), dim=-1).cpu()
         all_images.append(image_input)
     
-    if remove_dimensions == ['']:
+    if remove_dimensions == None:
         remove_dimensions_size = 0
     else:
         remove_dimensions_size = len(remove_dimensions)
@@ -159,8 +161,7 @@ def Convert(tup, di):
     di = dict(tup)
     return di
 
-def show_results(all_bias, print_type, score_or_quant, language,top_similar,add_signal):
-
+def show_results(all_bias, print_type, score_or_quant, language,top_similar,add_signal,top_type,rude_level):
     # #TODO: VERIFICAR OS RESULTADOS COM MULTIPLOS VALORES NA LISTA E A QUANTIDADE DE REPETICOES
     # # print to Json
     # for bias in all_bias:
@@ -190,14 +191,22 @@ def show_results(all_bias, print_type, score_or_quant, language,top_similar,add_
                 if top_similar == None:
                     vk = sorted(zip(item_v_list,my_list_keys_to_print))
                 else:
-                    vk = sorted(zip(item_v_list,my_list_keys_to_print))[(len(item_v_list)-top_similar):]
+                    if top_type == 'top':
+                        vk = sorted(zip(item_v_list,my_list_keys_to_print))[(len(item_v_list)-top_similar):]
+                    if top_type == 'equal':
+                        vk = sorted(zip(item_v_list,my_list_keys_to_print))
+                        vk = vk[0:(top_similar//2)+1] + vk[-((top_similar//2)+1):]
 
                 if add_signal == 'True':
                     # add signal
                     vk = add_list_signal_in_ziplist(vk,language)
                 
                 if score_or_quant=='both':
-                    vk = sorted(vk,key=lambda x: x[0][1])
+                    if top_type == 'top':
+                        vk = sorted(vk,key=lambda x: x[0][1])
+                    if top_type == 'equal':
+                        vk = sorted(vk,key=lambda x: x[0][1])
+                        vk = sorted(vk[0:(top_similar//2)+1], reverse=True) + sorted(vk[-((top_similar//2)+1):], reverse=True)
                 
                 for _,k in vk:
                     print(k, end=',')
@@ -270,7 +279,10 @@ def show_results(all_bias, print_type, score_or_quant, language,top_similar,add_
             removed_dimensions = args.remove_dimensions_list.split('/')[-1]
         else: 
             removed_dimensions = ''
-        df.to_csv(f'/home/{user}/FairPIVARA/results/violin/Enviroment:language-{language},task-{args.task},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{removed_dimensions},repetitions-{args.repetitions},bias_type-{args.bias_type}', index=False)
+        if rude_level == 1:
+            df.to_csv(f'/home/{user}/FairPIVARA/results/violin/Enviroment:language-{language},task-{args.task},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{removed_dimensions},repetitions-{args.repetitions},bias_type-{args.bias_type}', index=False)
+        else:
+            df.to_csv(f'/home/{user}/FairPIVARA/results/violin/Enviroment:language-{language},task-{args.task},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{removed_dimensions},repetitions-{args.repetitions},bias_type-{args.bias_type},rude_level-{rude_level}', index=False)
         print(df)
 
 def add_list_signal(temp_list, language):
@@ -306,8 +318,8 @@ def add_list_signal_in_ziplist(ziplist, language):
 def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_tokenizer, device, language, number_concepts, weighted_list, add_signal, sorted_df_similarities,top_similar,remove_dimensions_list,repetitions,bias_type):
     repetition_all_bias = {}
     for repeted in range(repetitions):
-        if repeted % 100:
-            print(repeted)
+        # if repeted % 100 == 0:
+        #     print(repeted)
         # Create the file sistem
         concepts = concepts.replace('|', ' ')
         # List thought all the concepts
@@ -387,6 +399,12 @@ def extract_bias(concepts, dataset_path, vision_processor, model, labels, text_t
                             repetition_all_bias[global_concept][micro_concept][item] = all_bias[global_concept][micro_concept][item]
                         else:
                             repetition_all_bias[global_concept][micro_concept][item] = (repetition_all_bias[global_concept][micro_concept][item][0]+all_bias[global_concept][micro_concept][item][0], repetition_all_bias[global_concept][micro_concept][item][1]+all_bias[global_concept][micro_concept][item][1])
+    if repetitions > 1:
+        print("Dividing by the number of repetitions")
+        for global_concept in repetition_all_bias:
+            for micro_concept in repetition_all_bias[global_concept]:
+                for item in repetition_all_bias[global_concept][micro_concept]:
+                    repetition_all_bias[global_concept][micro_concept][item] = (repetition_all_bias[global_concept][micro_concept][item][0]/repetitions, repetition_all_bias[global_concept][micro_concept][item][1]/repetitions)
     return repetition_all_bias
 
 def old_caliskan_test (all_bias):
@@ -476,8 +494,12 @@ if __name__ == "__main__":
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
     print("Device: ", device)
 
-    with open(f'{args.dataset_path}/{args.language}_textual_phrases.txt') as f:
-        text_dataset = json.load(f)
+    if args.rude_level == 1:
+        with open(f'{args.dataset_path}/{args.language}_textual_phrases.txt') as f:
+            text_dataset = json.load(f)
+    elif args.rude_level == 0:
+        with open(f'{args.dataset_path}/{args.language}_textual_phrases_rude_0.txt') as f:
+            text_dataset = json.load(f)
 
     labels = {}
     labels['unpleasant_phrases'] = text_dataset['unpleasant_phrases']
@@ -545,9 +567,9 @@ if __name__ == "__main__":
             
 
         print(f'Enviroment:task-{args.task},gpu-{args.gpu},score_or_quant-{args.score_or_quant},extract_top_similar-{args.extract_top_similar},view_top_similar-{args.view_top_similar},remove_dimensions_list-{args.remove_dimensions_list},repetitions-{args.repetitions},bias_type-{args.bias_type}')
-
+        print('') 
         all_bias = extract_bias(args.concepts, args.dataset_path, vision_processor, model, labels, text_tokenizer, device, args.language, number_concepts, weighted_list, add_signal, sorted_df_similarities,extract_top_similar, remove_dimensions_list, args.repetitions, args.bias_type)
-        show_results(all_bias, args.print, args.score_or_quant, args.language,view_top_similar,add_signal)
+        show_results(all_bias, args.print, args.score_or_quant, args.language,view_top_similar,add_signal,args.top_type,args.rude_level)
 
     elif args.task == 'comparison':
         print(args.remove_dimensions_list)
