@@ -32,5 +32,5 @@ if __name__ == '__main__':
      num_dimensions_removed = 135
 
      if method == 'shared_dimensions_frequency':
-          file_with_dimensions = 'results/new_words/theta-001to005/135_dims/pt_results_theta_0-05.txt'
+          file_with_dimensions = 'results/pt-theta-001to005/135 dims/results_theta_0-05.txt'
           shared_dimensions_frequency(file_with_dimensions,num_dimensions_removed)

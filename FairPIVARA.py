@@ -564,13 +564,13 @@ top_similar = 15
 embedding_dimension=512
 module = 'calculate_bias_separately' #'calculate_bias_separately','bias_calculation'
 theta = [0.05] #[0.01, 0.02, 0.03, 0.04, 0.05]
-N_size = [135] # [27, 54, 81, 108, 135, 162, 189, 216, 243, 270, 297, 324, 351, 378, 405, 432, 459, 486, 512]
+N_size = [54] # [27, 54, 81, 108, 135, 162, 189, 216, 243, 270, 297, 324, 351, 378, 405, 432, 459, 486, 512]
 function_to_optimize = 'minimize' # minimize, maximize
 # Used only on bias_calculation
-repeat_times = [1] # [1, 100, 1000]
+repeat_times = [1000] # [1, 100, 1000]
 file_read = 'multiple_sets' #'multiple_sets, same_set'
 bias_type = 'same_as_X' #'random, random_A_B, same_as_X'
-file_with_dimensions = ['results/new_words/theta-001to005/results_theta_0-05.txt'] #'results/theta-001to005/results_theta_0-05.txt', 'results/theta-001to005/results_theta_same_values.txt', 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
+file_with_dimensions = ['results/theta-001to011/54_dims/same_values/results_theta_0-05_same_values.txt'] #'results/theta-001to005/results_theta_0-05.txt', 'results/theta-001to005/results_theta_same_values.txt', 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
 
 # device = torch.device(f"cuda" if torch.cuda.is_available() else "cpu")
 device = torch.device(f"cuda:{GPU}" if torch.cuda.is_available() else "cpu")
@@ -666,6 +666,7 @@ if module == 'calculate_bias_together':
 
 # Calcula o bias comparativos entre duas classes a partir de um conjuntos de dimensões a serem removidas. Como entrada um arquivo txt com as dimensões
 if module == 'bias_calculation':
+    start = time.time()
     for d_file in file_with_dimensions:
         print(f'file_with_dimensions: {d_file}')
         with open(d_file) as f:
@@ -796,3 +797,5 @@ if module == 'bias_calculation':
             end = time.time()
             print(f'__________________________ Time: {end - start} __ Repeated: {repeat} __ File: {d_file} __________________________')
             print('#################################################################################################################')
+    end = time.time()
+    print(f'__________________________ Time: {end - start} __________________________')
