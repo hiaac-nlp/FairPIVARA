@@ -3,7 +3,7 @@
 In this work, we evaluate four different types of discriminatory practices within visual-language models and introduce <img src="assets/fairpivara.png" style="width:20px"> FairPIVARA, a method to reduce them by removing the most affected dimensions of feature embeddings. The application of <img src="assets/fairpivara.png" style="width:20px"> FairPIVARA has led to a significant reduction of up to 98\% in observed biases while promoting a more balanced word distribution within the model.
 
 ## Pipeline
-<img src="assets/FairPIVARA_Diagram.png.png" >
+<img src="assets/FairPIVARA_Diagram.png" >
 
 In our pipeline, we employed the following models:
 
