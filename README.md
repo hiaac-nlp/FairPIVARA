@@ -159,3 +159,20 @@ REPETITIONS=1000 # number of times the algorithm is repeated
 BIAS_TYPE='same_as_selected' # Type of remotions for text. 'same_as_selected','random_text','random' Used with remove-dimensions-list, if remove-dimensions-list is empty, this parameter is ignored
 
 ```
+
+## Acknowledgements
+
+This project was supported by the Ministry of Science, Technology, and Innovation of Brazil, with resources granted by the Federal Law 8.248 of October 23, 1991, under the PPI-Softex. The project was coordinated by Softex and published as Intelligent agents for mobile platforms based on Cognitive Architecture technology \text{[01245.003479/2024-10]}. D.A.B.M. is partially funded by FAPESP 2023/05939-5. A.I.F. and N.S. are partially funded by Centro de Excel\^encia em Intelig\^encia Artificial, da Universidade Federal de Goi\'as. G.O.S is partially funded by FAPESP 2024/07969-1. H.P. is partially funded by CNPq 304836/2022-2. S.A. is partially funded by CNPq 316489/2023-9, FAPESP 2013/08293-7, 2020/09838-0, 2023/12086-9, and Google Award for Inclusion Research~2022.
+
+## Citation
+```bibtex
+@misc{moreira2024fairpivarareducingassessingbiases,
+      title={FairPIVARA: Reducing and Assessing Biases in CLIP-Based Multimodal Models}, 
+      author={Diego A. B. Moreira and Alef Iury Ferreira and Gabriel Oliveira dos Santos and Luiz Pereira and João Medrado Gondim and Gustavo Bonil and Helena Maia and Nádia da Silva and Simone Tiemi Hashiguti and Jefersson A. dos Santos and Helio Pedrini and Sandra Avila},
+      year={2024},
+      eprint={2409.19474},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2409.19474}, 
+}
+```
