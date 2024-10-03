@@ -394,7 +394,7 @@ if __name__ == "__main__":
         with open(f'{args.dataset_path}/{args.language}_textual_phrases.txt') as f:
             text_dataset = json.load(f)
     elif args.rude_level == 0:
-        with open(f'{args.dataset_path}/{args.language}_textual_phrases_rude_0.txt') as f:
+        with open(f'{args.dataset_path}/{args.language}_textual_phrases_less_politically_charged.txt') as f:
             text_dataset = json.load(f)
 
     labels = {}

@@ -577,7 +577,7 @@ if rude_level == 1:
     with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases.txt') as f:
         text_dataset = json.load(f)
 elif rude_level == 0:
-    with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases_rude_0.txt') as f:
+    with open(f'{MAIN_PATH}/{LANGUAGE_PATH}/{LANGUAGE}_textual_phrases_less_politically_charged.txt') as f:
         text_dataset = json.load(f)
 else:
     print('Invalid rude level')
