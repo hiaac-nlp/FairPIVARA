@@ -41,7 +41,7 @@ In our pipeline, we employed the following models:
 |                   |       Jewish      |        Muslim       |   |   -0.18   |  -0.07 |     61.11%    |    0.02    |     88.89%    |   |   0.07   |    0.01    |     85.24%    |
 | Sexua Orientation |    Heterosexual   |         LGBT        |   |   -1.33   |  -1.32 |     0.75%     |    0.02    |     98.50%    |   |   -1.18  |    0.02    |     98.30%    |
 
-Relative bias between classes for OpenCLIP and CAPIVARA models, along with bias reduction by MMBias and FairPIVARA algorithms. Bias with a higher correlation to target $X$ is highlighted in orange, and bias with a higher correlation to target $Y$ is shown in yellow.
+Relative bias between classes for OpenCLIP and CAPIVARA models, along with bias reduction by MMBias and FairPIVARA algorithms. In the pdf of the FairPIVAFA article, bias with a higher correlation to target $X$ is highlighted in orange, and bias with a higher correlation to target $Y$ is shown in yellow.
 
 #### Classification Performance
 
@@ -168,13 +168,10 @@ This project was supported by the Ministry of Science, Technology, and Innovatio
 
 ## Citation
 ```bibtex
-@misc{moreira2024fairpivarareducingassessingbiases,
+@inproceedings{moreira2024fairpivarareducingassessingbiases,
       title={FairPIVARA: Reducing and Assessing Biases in CLIP-Based Multimodal Models}, 
-      author={Diego A. B. Moreira and Alef Iury Ferreira and Gabriel Oliveira dos Santos and Luiz Pereira and João Medrado Gondim and Gustavo Bonil and Helena Maia and Nádia da Silva and Simone Tiemi Hashiguti and Jefersson A. dos Santos and Helio Pedrini and Sandra Avila},
+      author={Diego A. B. Moreira and Alef Iury Ferreira and Jhessica Silva and Gabriel Oliveira dos Santos and Luiz Pereira and João Medrado Gondim and Gustavo Bonil and Helena Maia and Nádia da Silva and Simone Tiemi Hashiguti and Jefersson A. dos Santos and Helio Pedrini and Sandra Avila},
+      booktitle={BMVC},
       year={2024},
-      eprint={2409.19474},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2409.19474}, 
 }
 ```
