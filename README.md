@@ -1,5 +1,7 @@
 # <img src="assets/fairpivara.png" style="width:50px; margin-right:-5px"> FairPIVARA: Reducing and Assessing Biases in CLIP-Based Multimodal Models 
 
+[![Arxiv](https://img.shields.io/badge/Arxiv-2409.19474_--_2024-red?color=crimson)](https://arxiv.org/abs/2409.19474)
+
 In this work, we evaluate four different types of discriminatory practices within visual-language models and introduce <img src="assets/fairpivara.png" style="width:20px"> FairPIVARA, a method to reduce them by removing the most affected dimensions of feature embeddings. The application of <img src="assets/fairpivara.png" style="width:20px"> FairPIVARA has led to a significant reduction of up to 98\% in observed biases while promoting a more balanced word distribution within the model.
 
 ## Pipeline
@@ -18,28 +20,28 @@ In our pipeline, we employed the following models:
 |                   |                   |                     |   |    CLIP   |        |               |            |               |   | CAPIVARA |            |               |
 |-------------------|-------------------|---------------------|---|:---------:|:------:|:-------------:|:----------:|:-------------:|---|:--------:|:----------:|:-------------:|
 |                   |      Target X     |       Target Y      |   | CLIP Base | MMBias | Reduction (%) | FairPIVARA | Reduction (%) |   | CAPIVARA | FairPIVARA | Reduction (%) |
-|     Disability    | Mental Disability |     Non-Disabled    |   |    1,43   |  1,43  |     0,00%     |    0,01    |     99,30%    |   |   1,63   |    -0,01   |     99,39%    |
-|                   | Mental Disability | Physical Disability |   |    0,92   |  0,92  |     0,00%     |    0,01    |     98,91%    |   |   1,12   |    0,02    |     98,21%    |
-|                   |    Non-Disabled   | Physical Disability |   |   -1,06   |  -0,57 |     46,23%    |    0,02    |     98,11%    |   |   -1,32  |    0,00    |    100,00%    |
-|    Nationality    |      American     |         Arab        |   |   -0,97   |  -0,81 |     16,49%    |    0,01    |     98,97%    |   |   -1,21  |    0,00    |    100,00%    |
-|                   |      American     |       Chinese       |   |   -0,56   |  -0,49 |     12,50%    |    0,02    |     96,43%    |   |   -0,62  |    0,00    |    100,00%    |
-|                   |      American     |       Mexican       |   |   -1,07   |  -0,99 |     7,48%     |    0,00    |    100,00%    |   |   -0,92  |    0,00    |    100,00%    |
-|                   |        Arab       |       Chinese       |   |    0,53   |  0,53  |     0,00%     |    0,00    |    100,00%    |   |   0,76   |    0,00    |    100,00%    |
-|                   |        Arab       |       Mexican       |   |   -0,13   |  -0,10 |     23,08%    |    -0,02   |     84,62%    |   |   0,43   |    -0,02   |     95,33%    |
-|                   |      Chinese      |       Mexican       |   |   -0,65   |  -0,44 |     32,31%    |    0,00    |    100,00%    |   |   -0,37  |    -0,01   |     97,32%    |
-|      Religion     |      Buddhist     |      Christian      |   |    0,80   |  0,80  |     0,00%     |    -0,01   |     98,75%    |   |   0,77   |    0,00    |    100,00%    |
-|                   |      Buddhist     |        Hindu        |   |    0,00   |  0,00  |     0,00%     |    0,05    |     0,00%     |   |   0,08   |    0,01    |     87,68%    |
-|                   |      Buddhist     |        Jewish       |   |   -1,66   |  -1,66 |     0,00%     |    0,01    |     99,40%    |   |   -1,62  |    0,00    |    100,00%    |
-|                   |      Buddhist     |        Muslim       |   |   -1,60   |  -1,54 |     3,75%     |    0,01    |     99,38%    |   |   -1,51  |    0,01    |     99,34%    |
-|                   |     Christian     |        Hindu        |   |   -0,73   |  -0,65 |     10,96%    |    -0,02   |     97,26%    |   |   -0,67  |    0,00    |    100,00%    |
-|                   |     Christian     |        Jewish       |   |   -1,71   |  -1,69 |     1,17%     |    0,00    |    100,00%    |   |   -1,72  |    -0,01   |     99,42%    |
-|                   |     Christian     |        Muslim       |   |   -1,67   |  -1,65 |     1,20%     |    0,01    |     99,40%    |   |   -1,65  |    0,01    |     99,39%    |
-|                   |       Hindu       |        Jewish       |   |   -1,58   |  -1,58 |     0,00%     |    -0,01   |     99,37%    |   |   -1,60  |    0,02    |     98,75%    |
-|                   |       Hindu       |        Muslim       |   |   -1,53   |  -1,52 |     0,65%     |    0,02    |     98,69%    |   |   -1,50  |    0,01    |     99,33%    |
-|                   |       Jewish      |        Muslim       |   |   -0,18   |  -0,07 |     61,11%    |    0,02    |     88,89%    |   |   0,07   |    0,01    |     85,24%    |
-| Sexua Orientation |    Heterosexual   |         LGBT        |   |   -1,33   |  -1,32 |     0,75%     |    0,02    |     98,50%    |   |   -1,18  |    0,02    |     98,30%    |
+|     Disability    | Mental Disability |     Non-Disabled    |   |    1.43   |  1.43  |     0.00%     |    0.01    |     99.30%    |   |   1.63   |    -0.01   |     99.39%    |
+|                   | Mental Disability | Physical Disability |   |    0.92   |  0.92  |     0.00%     |    0.01    |     98.91%    |   |   1.12   |    0.02    |     98.21%    |
+|                   |    Non-Disabled   | Physical Disability |   |   -1.06   |  -0.57 |     46.23%    |    0.02    |     98.11%    |   |   -1.32  |    0.00    |    100.00%    |
+|    Nationality    |      American     |         Arab        |   |   -0.97   |  -0.81 |     16.49%    |    0.01    |     98.97%    |   |   -1.21  |    0.00    |    100.00%    |
+|                   |      American     |       Chinese       |   |   -0.56   |  -0.49 |     12.50%    |    0.02    |     96.43%    |   |   -0.62  |    0.00    |    100.00%    |
+|                   |      American     |       Mexican       |   |   -1.07   |  -0.99 |     7.48%     |    0.00    |    100.00%    |   |   -0.92  |    0.00    |    100.00%    |
+|                   |        Arab       |       Chinese       |   |    0.53   |  0.53  |     0.00%     |    0.00    |    100.00%    |   |   0.76   |    0.00    |    100.00%    |
+|                   |        Arab       |       Mexican       |   |   -0.13   |  -0.10 |     23.08%    |    -0.02   |     84.62%    |   |   0.43   |    -0.02   |     95.33%    |
+|                   |      Chinese      |       Mexican       |   |   -0.65   |  -0.44 |     32.31%    |    0.00    |    100.00%    |   |   -0.37  |    -0.01   |     97.32%    |
+|      Religion     |      Buddhist     |      Christian      |   |    0.80   |  0.80  |     0.00%     |    -0.01   |     98.75%    |   |   0.77   |    0.00    |    100.00%    |
+|                   |      Buddhist     |        Hindu        |   |    0.00   |  0.00  |     0.00%     |    0.05    |     0.00%     |   |   0.08   |    0.01    |     87.68%    |
+|                   |      Buddhist     |        Jewish       |   |   -1.66   |  -1.66 |     0.00%     |    0.01    |     99.40%    |   |   -1.62  |    0.00    |    100.00%    |
+|                   |      Buddhist     |        Muslim       |   |   -1.60   |  -1.54 |     3.75%     |    0.01    |     99.38%    |   |   -1.51  |    0.01    |     99.34%    |
+|                   |     Christian     |        Hindu        |   |   -0.73   |  -0.65 |     10.96%    |    -0.02   |     97.26%    |   |   -0.67  |    0.00    |    100.00%    |
+|                   |     Christian     |        Jewish       |   |   -1.71   |  -1.69 |     1.17%     |    0.00    |    100.00%    |   |   -1.72  |    -0.01   |     99.42%    |
+|                   |     Christian     |        Muslim       |   |   -1.67   |  -1.65 |     1.20%     |    0.01    |     99.40%    |   |   -1.65  |    0.01    |     99.39%    |
+|                   |       Hindu       |        Jewish       |   |   -1.58   |  -1.58 |     0.00%     |    -0.01   |     99.37%    |   |   -1.60  |    0.02    |     98.75%    |
+|                   |       Hindu       |        Muslim       |   |   -1.53   |  -1.52 |     0.65%     |    0.02    |     98.69%    |   |   -1.50  |    0.01    |     99.33%    |
+|                   |       Jewish      |        Muslim       |   |   -0.18   |  -0.07 |     61.11%    |    0.02    |     88.89%    |   |   0.07   |    0.01    |     85.24%    |
+| Sexua Orientation |    Heterosexual   |         LGBT        |   |   -1.33   |  -1.32 |     0.75%     |    0.02    |     98.50%    |   |   -1.18  |    0.02    |     98.30%    |
 
-Relative bias between classes for OpenCLIP and CAPIVARA models, along with bias reduction by MMBias and FairPIVARA algorithms. Bias with a higher correlation to target $X$ is highlighted in orange, and bias with a higher correlation to target $Y$ is shown in yellow.
+Relative bias between classes for OpenCLIP and CAPIVARA models, along with bias reduction by MMBias and FairPIVARA algorithms. In the pdf of the FairPIVAFA article, bias with a higher correlation to target $X$ is highlighted in orange, and bias with a higher correlation to target $Y$ is shown in yellow.
 
 #### Classification Performance
 
@@ -162,17 +164,14 @@ BIAS_TYPE='same_as_selected' # Type of remotions for text. 'same_as_selected','r
 
 ## Acknowledgements
 
-This project was supported by the Ministry of Science, Technology, and Innovation of Brazil, with resources granted by the Federal Law 8.248 of October 23, 1991, under the PPI-Softex. The project was coordinated by Softex and published as Intelligent agents for mobile platforms based on Cognitive Architecture technology \text{[01245.003479/2024-10]}. D.A.B.M. is partially funded by FAPESP 2023/05939-5. A.I.F. and N.S. are partially funded by Centro de Excel\^encia em Intelig\^encia Artificial, da Universidade Federal de Goi\'as. G.O.S is partially funded by FAPESP 2024/07969-1. H.P. is partially funded by CNPq 304836/2022-2. S.A. is partially funded by CNPq 316489/2023-9, FAPESP 2013/08293-7, 2020/09838-0, 2023/12086-9, and Google Award for Inclusion Research~2022.
+This project was supported by the Ministry of Science, Technology, and Innovation of Brazil, with resources granted by the Federal Law 8.248 of October 23, 1991, under the PPI-Softex. The project was coordinated by Softex and published as Intelligent agents for mobile platforms based on Cognitive Architecture technology 01245.003479/2024-10. D.A.B.M. is partially funded by FAPESP 2023/05939-5. A.I.F. and N.S. are partially funded by Centro de Excelência em Inteligência Artificial, da Universidade Federal de Goiás. G.O.S is partially funded by FAPESP 2024/07969-1. H.P. is partially funded by CNPq 304836/2022-2. S.A. is partially funded by CNPq 316489/2023-9, FAPESP 2013/08293-7, 2020/09838-0, 2023/12086-9, and Google Award for Inclusion Research 2022.
 
 ## Citation
 ```bibtex
-@misc{moreira2024fairpivarareducingassessingbiases,
+@inproceedings{moreira2024fairpivarareducingassessingbiases,
       title={FairPIVARA: Reducing and Assessing Biases in CLIP-Based Multimodal Models}, 
-      author={Diego A. B. Moreira and Alef Iury Ferreira and Gabriel Oliveira dos Santos and Luiz Pereira and João Medrado Gondim and Gustavo Bonil and Helena Maia and Nádia da Silva and Simone Tiemi Hashiguti and Jefersson A. dos Santos and Helio Pedrini and Sandra Avila},
+      author={Diego A. B. Moreira and Alef Iury Ferreira and Jhessica Silva and Gabriel Oliveira dos Santos and Luiz Pereira and João Medrado Gondim and Gustavo Bonil and Helena Maia and Nádia da Silva and Simone Tiemi Hashiguti and Jefersson A. dos Santos and Helio Pedrini and Sandra Avila},
+      booktitle={BMVC},
       year={2024},
-      eprint={2409.19474},
-      archivePrefix={arXiv},
-      primaryClass={cs.CV},
-      url={https://arxiv.org/abs/2409.19474}, 
 }
 ```
