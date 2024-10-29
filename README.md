@@ -81,7 +81,7 @@ FairPIVARA
 │  │  └─ ZeroShotClassification.ipynb <--- zero-shot grading with visualization.
 │  │  └─ ZeroShotRetrieval.ipynb <--- zero-shot retrieval with visualization.
 │  └─ src
-│     ├─ individual_bias_run <--- sh to run classification.py
+│     ├─ individual_bias_run <--- sh to run individual_bias.py
 │     ├─ individual_bias.py <--- calculates the results of individual bias, to create comparative tables of bias by concepts.
 │     ├─ FairPIVARA.py <--- performs the check of which dimensions should be removed (module calculate_bias_separately) or calculates the results for Relative Bias (module bias_calculation)
 ```
