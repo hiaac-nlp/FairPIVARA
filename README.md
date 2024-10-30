@@ -68,99 +68,123 @@ pip install -r requirements.txt
 
 ```
 ├─ README.md
-├─ assets
+├─ requirements.txt
+├─ assets
 │  ├─ FairPIVARA_Diagram.png
-│  ├─ fairpivara.png
-FairPIVARA
-│  ├─ utils					
-│  │  └─ highest_frequency_dimensions.py <--- auxiliary methods for checking the highest frequency dimensions
+│  └─ fairpivara.png
+├─ Less-Politically-Charged-and-Translations-Sets
+│  ├─ pt-br_textual_phrases.txt <--- translation of the textual data in English to Portuguese, from the MMBIAS dataset
+│  ├─ en_textual_phrases_less_politically_charged.txt <--- textual bias data with less political charge, in English, proposed by this work
+│  └─ pt-br_textual_phrases_less_politically_charged.txt <--- textual bias data with less political charge, in Portuguese, proposed by this work
+├─FairPIVARA
+│  ├─ prepare_environment.sh <--- bash file to prepare the environment to run the project and data organizer
+│  ├─ FairPIVARA_select_dimensions.sh <--- bash file to run the FairPIVARA.py algorithm (Calculate what dimensions should be removed)
+│  └─ show_bias.sh <--- bash file to run the show_bias.py. (Show the FairPIVARA results)
 │  ├─ visualizers <--- .ipynb files for viewing results.				
-│  │  └─ classificationTables.ipynb <--- creating and viewing classification tables
-│  │  └─ en-visualizer.ipynb <--- graphs for results analysis in English
-│  │  └─ pt-br-visualizer.ipynb <--- graphs for results analysis in Portuguese
-│  │  └─ ZeroShotClassification.ipynb <--- zero-shot grading with visualization.
+│  │  ├─ classificationTables.ipynb <--- creating and viewing classification tables
+│  │  ├─ en-visualizer.ipynb <--- graphs for results analysis in English
+│  │  ├─ pt-br-visualizer.ipynb <--- graphs for results analysis in Portuguese
+│  │  ├─ ZeroShotClassification.ipynb <--- zero-shot grading with visualization.
 │  │  └─ ZeroShotRetrieval.ipynb <--- zero-shot retrieval with visualization.
-│  └─ src
-│     ├─ individual_bias_run <--- sh to run individual_bias.py
-│     ├─ individual_bias.py <--- calculates the results of individual bias, to create comparative tables of bias by concepts.
-│     ├─ FairPIVARA.py <--- performs the check of which dimensions should be removed (module calculate_bias_separately) or calculates the results for Relative Bias (module bias_calculation)
+│  ├─ src
+│  │  └─ show_bias.py <--- calculates the results of individual bias, to create comparative tables of bias by concepts (task by_concept). Calculates the results for Relative Bias (task cross_concept).
+│  │  └─ FairPIVARA.py <--- performs the check of which dimensions should be removed (tasks calculate_bias_separately or calculate_bias_together)
+│  │  ├─ utils
+│  │  │  ├─ __init__.py <--- package level
+│  │  │  ├─ all_features.py <--- method for extracting features from data
+│  │  │  ├─ highest_frequency_dimensions.py <--- auxiliary methods for checking the highest frequency dimensions
+│  │  │  ├─ MI.py <--- Implementation of Mutual Information
+│  │  │  ├─ mmbias_dataset.py <--- dataset handle
+│  │  │  └─ WEAT_test.py <--- class for test the WEAT value
+│  │  ├─ result_example
+└─ └─ └─ └─ results_theta_0-05_same_values.txt <--- example of output file of the FairPIVARA algorithm, for use of show_bias
+
+
+
 ```
 
 ### Three main functions are implemented for the use of FairPIVARA
 + FairPIVARA Algorithm: For selecting which dimensions can be optimally removed from the embedding.
-+ Individual Bias: Calculation of Bias individually and comparatively between concepts (Tables 1, 2 and 3).
-+ Relative Bias: Calculation of Bias in a relative way, between two classes, Table 4.
++ Individual Bias (by_concept): Calculation of Bias individually and comparatively between concepts (Tables 1, 2 and 3).
++ Relative Bias (cross_concept): Calculation of Bias in a relative way, between two classes, Table 4.
 
 #### FairPIVARA Algorithm
 
-The FairPIVARA.py file must be used, with the calculate_bias_separately module.
+The FairPIVARA.py file must be used, with the bash FairPIVARA_select_dimensions.sh script.
 The following arguments are supported:
 
 ```python
-GPU = 2 
-MAIN_PATH = '/hadatasets/MMBias'
-DATASET_PATH = '/hadatasets/MMBias/data'
-rude_level = 1 # Political (1) or non-political bias dataset
-LANGUAGE_PATH = 'data'
-LANGUAGE = 'en' # 'en', 'pt-br'
-ft_open_clip = 'False'
-adapter = 'False'
+TASK='calculate_bias_together' # 'calculate_bias_together' or 'calculate_bias_separately'
+
+FT_OPEN_CLIP='False' #Used in pt fine-tuning
+GPU=1
+DATASET_PATH='../MMBias-main/data'
+RUDE_LEVEL=1 # Political (1) or non-political bias dataset
 CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT' # Concepts used in classification  (| for space and , for and)
-weighted_list='False'
-add_signal = 'True'
-sorted_df_similarities = 'True'
-top_similar = 15 # '', '15' Number of terms considered
-embedding_dimension=512 # Number of model embedding dimensions
-module = 'bias_calculation' #'calculate_bias_separately','bias_calculation' 
-theta = [0.05] # Theta value : [0.01, 0.02, 0.03, 0.04, 0.05]
-N_size = [54] # Number of dimensions to be removed : [27, 54, 81, 108, 135, 162, 189, 216, 243, 270, 297, 324, 351, 378, 405, 432, 459, 486, 512]
-function_to_optimize = 'minimize' # minimize, maximize
-```
-
-#### Relative Bias
-
-Using the bias_calculation module of the FairPIVARA.py file, it is possible to calculate the results for Relative Bias.
-The following additional arguments will be required:
-
-```python
-# Parameters used for the bias calculation module
-repeat_times = [1000] # number of times the algorithm is repeated : [1, 100, 1000]
-file_read = 'multiple_sets' # File reading type 'multiple_sets, same_set'
-bias_type = 'same_as_X' # Type of remotions for text. random, random_A_B, same_as_X, none
-file_with_dimensions = ['']  # File with the dimensions to be removed #'results/theta-001to005/results_theta_0-05.txt'
-```
-
-In addition to changing module to:
-
-```python
-module = 'bias_calculation' 
+LANGUAGE='en' # "en", "pt-br"
+LANGUAGE_PATH_RUDE_0='../Less-Politically-Charged-and-Translations-Sets'
+LANGUAGE_PATH_RUDE_1='../MMBias-main/data'
+WEIGHTED_LIST='False'
+ADAPTER='False'
+ADD_SIGNAL='True'
+SORTED_DF_SIMILARITIES='True'
+TOP_SIMILAR=15 # '', '15' Number of terms considered
+EMBEDDING_DIMENSIONS=512 # Number of model embedding dimensions
+THETA='0.05' # Theta value : '0.01, 0.02, 0.03, 0.04, 0.05'
+N_SIZE='54' # Number of dimensions to be removed : '27, 54, 81, 108, 135, 162, 189, 216, 243, 270, 297, 324, 351, 378, 405, 432, 459, 486, 512'
+FUNCTION_TO_OPTIMIZE='minimize' # minimize, maximize
 ```
 
 #### Individual Bias
 
-The individual_bias.py file calculates biases individually for each concept and its bias relationship with its labels.
-To run this file, a support sh can be used (individual_bias_run.sh).
+Using the by_concept task of the show_bias.sh script, calculates biases individually for each concept and its bias relationship with its labels.
 The following arguments are supported:
 
 ```python
+TASK='by_concept' # 'by_concept' or 'cross_concept'
+
 FT_OPEN_CLIP='False' #Used in pt fine-tuning
-GPU=2 
-DATASET_PATH="/hadatasets/MMBias/data"
+GPU=1
+DATASET_PATH='../MMBias-main/data'
 RUDE_LEVEL=1 # Political (1) or non-political bias dataset
 CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT' # Concepts used in classification  (| for space and , for and)
 LANGUAGE='en' # "en", "pt-br"
-TASK='classification'
 PRINT='exel' #'json' , 'exel', 'pandas'  #pandas used to violin plots
 SCORE_OR_QUANT=both #'both_operation (with mean), both'
 WEIGHTED_LIST='False'
 EXTRACT_TOP_SIMILAR='15'  # '', '15' Number of terms considered
-VIEW_TOP_SIMILAR='15'  #N umber of terms considered in view. For exel, we used '15'. For the violin, it is necessary to have value ''. 
+VIEW_TOP_SIMILAR='15'  #Number of terms considered in view. For exel, we used '15'. For the violin, it is necessary to have value ''. 
 TOP_TYPE='top' # 'top', 'equal' # The firsts ones or per type # equal don't work with pandas print
-REMOVE_DIMENSIONS_LIST='' # Listo of dimensions to be removed : '' , 'results/theta-001to005/results_theta_same_values.txt'
-REPETITIONS=1000 # number of times the algorithm is repeated 
+REMOVE_DIMENSIONS_LIST='' # List of dimensions to be removed : '' , 'results/theta-001to005/results_theta_same_values.txt'
+# By Concepts Variables
 BIAS_TYPE='same_as_selected' # Type of remotions for text. 'same_as_selected','random_text','random' Used with remove-dimensions-list, if remove-dimensions-list is empty, this parameter is ignored
-
+REPETITIONS=1000 # number of times the algorithm is repeated 
 ```
+
+#### Relative Bias
+
+Using the cross_concept task of the show_bias.sh script, it is possible to calculate the results for Relative Bias.
+The following additional arguments will be required:
+
+```python
+# Cross Concepts Variables
+REPEAT_TIMES='1000' # number of times the algorithm is repeated. To use more than one use a list of values like '1,10,100,1000'  (| for space and , for and)
+FILE_READ='multiple_sets' # File reading type 'multiple_sets, same_set'
+BIAS_TYPE='same_as_X' # Type of remotions for text. random, random_A_B, same_as_X, none
+FILE_WITH_DIMENSIONS='src/result_example/results_theta_0-05_same_values.txt'  # File with the dimensions to be removed #'results/theta-001to005/results_theta_0-05.txt', 'results/theta-001to005/results_theta_same_values.txt', 'results/theta-001to005/together/005-results_theta_calculation_together.txt'
+EMBEDDING_DIMENSIONS=512
+```
+
+In addition to changing task to:
+
+```python
+task = 'cross_concept' 
+```
+
+## Data
+
+To check for potentially biased classes, we used the [MMBIAS](https://github.com/sepehrjng92/MMBias) dataset, which contains images and texts of various concepts. In addition, we added a translation for this set into Portuguese, contained in Less-Politically-Charged-and-Translations-Sets, in addition to proposing new terms, with less political charge, which can be found in the same directory.
+To use this data, simply run the /FairPIVARA/prepare_environment.sh script, which can download and prepare the data for use with this project.
 
 ## Acknowledgements
 
