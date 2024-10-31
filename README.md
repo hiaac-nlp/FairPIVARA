@@ -57,12 +57,12 @@ Performance comparison between OpenCLIP and CAPIVARA models, both without (Origi
 
 
 ## Reproducibility
-<!-- ### Installation
+### Installation
 Run the following command to install required packages.
 
 ```bash
 pip install -r requirements.txt
-``` -->
+```
 
 ### Code organization
 
