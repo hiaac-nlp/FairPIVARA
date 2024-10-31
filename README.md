@@ -64,6 +64,9 @@ Run the following command to install required packages.
 pip install -r requirements.txt
 ```
 
+To download, prepare and organize the data run the /FairPIVARA/prepare_environment.sh script. 
+
+
 ### Code organization
 
 ```
