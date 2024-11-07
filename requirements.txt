@@ -8,7 +8,7 @@ pandas==2.2.3
 pillow==11.0.0
 scipy==1.14.1
 seaborn==0.13.2
-sklearn==0.0.post12
+scikit-learn==1.5.2
 torch==2.5.1
 torchvision==0.20.1
 tqdm==4.66.6

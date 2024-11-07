@@ -5,6 +5,7 @@ import itertools
 import time
 import pandas as pd
 import argparse
+from tqdm import tqdm
 import sys
 from utils.MI import mutual_information_2d
 from utils.all_features import all_features
@@ -147,8 +148,8 @@ def unique_bias_mean(X,sorted_df_similarities,weighted_list,language,add_signal,
 def single_bias_mitigation_algorithm(X, n, theta,function_to_optimize,sorted_df_similarities,weighted_list,language,add_signal):
     x = set()
     psi,_ = unique_bias_mean(X,sorted_df_similarities=sorted_df_similarities,weighted_list=weighted_list,language=language,add_signal=add_signal)  # Replace captions_vi and captions_vt with your subtitles
-    for d in range(X.size(1)):
-        
+    for d in tqdm(range(X.size(1)), desc='Dimensions'):
+
         X_temp = X.clone()
 
         # Calculate MI
@@ -166,7 +167,7 @@ def single_bias_mitigation_algorithm(X, n, theta,function_to_optimize,sorted_df_
     # z = sorted(x, key=lambda item: item[1])[:n]
     if function_to_optimize == 'maximize':
         z = sorted(x, key=lambda item: item[1],reverse=False)[:n]
-    else:    
+    else:
         # if min, remove the highest values
         z = sorted(x, key=lambda item: item[1],reverse=True)[:n]
 
@@ -191,7 +192,7 @@ if __name__ == "__main__":
     device = torch.device(f"cuda:{args.gpu}" if torch.cuda.is_available() else "cpu")
 
     print("Device: ", device)
-    if args.function_to_optimize == 'maximize':  
+    if args.function_to_optimize == 'maximize':
         print('!!!!!!!!!!!Attention, you are maximizing the function!!!!!!!!!!!')
 
     if args.rude_level == 1:
@@ -253,12 +254,12 @@ if __name__ == "__main__":
     if args.task == 'calculate_bias_separately':
         start = time.time()
         concepts = args.concepts.replace('|', ' ')
-        for t in theta_list: 
+        for t in theta_list:
             for dimension in n_size_list:
                 print(f'Theta: {int(t)}, Dimension: {dimension}')
                 # List thought all the concepts
                 bias_list = [item for item in concepts.split(',')]
-                for bias in bias_list:
+                for bias in tqdm(bias_list, desc='Bias'):
                     folder1= bias.split('/')[0]
                     folder2= bias.split('/')[1]
                     best_dimension_bias = single_bias_mitigation_algorithm(all_features_values[folder1][folder2],float(dimension),int(t),args.function_to_optimize,sorted_df_similarities=args.sorted_df_similarities,weighted_list=args.weighted_list,language=args.language,add_signal=args.add_signal)
@@ -279,7 +280,7 @@ if __name__ == "__main__":
             complete_all_features_values.append(all_features_values[folder1][folder2])
         complete_all_features_values = torch.cat(complete_all_features_values, axis=0)
 
-        for t in theta_list: 
+        for t in tqdm(theta_list, desc='Theta'):
             for dimension in n_size_list:
                 best_dimension_bias = single_bias_mitigation_algorithm(complete_all_features_values,int(dimension),float(t),args.function_to_optimize,sorted_df_similarities=args.sorted_df_similarities,weighted_list=args.weighted_list,language=args.language,add_signal=args.add_signal)
                 print(f'{t}, Total bias together, {unique_bias_mean(all_features_values[folder1][folder2],sorted_df_similarities=args.sorted_df_similarities,weighted_list=args.weighted_list,language=args.language,add_signal=args.add_signal)[0]}, {best_dimension_bias[0]}, {best_dimension_bias[1]}')

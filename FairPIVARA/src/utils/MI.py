@@ -1,5 +1,6 @@
 from scipy import ndimage
 import numpy as np
+import torch
 
 # Code extracted from https://gist.github.com/GaelVaroquaux/mutual_info.py
 def mutual_information_2d(x, y, sigma=1, normalized=False):
@@ -19,6 +20,9 @@ def mutual_information_2d(x, y, sigma=1, normalized=False):
     nmi: float
         the computed similariy measure
     """
+    x = np.array(x.cpu()) if isinstance(x, torch.Tensor) else np.array(x)
+    y = np.array(y.cpu()) if isinstance(y, torch.Tensor) else np.array(y)
+
     bins = (64, 64)
     jh = np.histogram2d(x, y, bins=bins)[0]
 
