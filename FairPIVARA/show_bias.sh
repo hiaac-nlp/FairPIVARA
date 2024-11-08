@@ -8,7 +8,7 @@
 # Usage: Use to run the reports and results of FairPIVARA, after remove the
 #         dimensions, using FairPIVARA_select_dimensions.sh
 #
-# Author: Diego Moreira          Last Update Date: 28/08/2024   
+# Author: Diego Moreira          Last Update Date: 28/08/2024
 #
 #
 # Revision History
@@ -46,7 +46,7 @@
 TASK='by_concept' # 'by_concept' or 'cross_concept'
 
 FT_OPEN_CLIP='False' #Used in pt fine-tuning
-GPU=1
+GPU=0
 DATASET_PATH='../MMBias-main/data'
 RUDE_LEVEL=1 # Political (1) or non-political bias dataset
 CONCEPTS='Disability/Mental|Disability,Disability/Non-Disabled,Disability/Physical|Disability,Nationality/American,Nationality/Arab,Nationality/Chinese,Nationality/Mexican,Religion/Buddhist,Religion/Christian,Religion/Hindu,Religion/Jewish,Religion/Muslim,Sexual|Orientation/Heterosexual,Sexual|Orientation/LGBT' # Concepts used in classification  (| for space and , for and)
